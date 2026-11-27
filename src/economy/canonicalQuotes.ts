@@ -296,7 +296,7 @@ export function conditionalReferralSplit(input: {
       applied: false,
       reason: 'REFERRAL_COUNT_INVALID',
       referrerRaw: 0n,
-      relayRaw: input.actualPayableRaw,
+      relayRaw: 0n, // never silent redistribute on invalid referral input
     };
   }
   if (count > REFERRAL_MAX_EDGES) {
@@ -304,7 +304,7 @@ export function conditionalReferralSplit(input: {
       applied: false,
       reason: 'REFERRAL_MAX_EDGES_EXCEEDED',
       referrerRaw: 0n,
-      relayRaw: input.actualPayableRaw,
+      relayRaw: 0n, // never silent redistribute when max five exceeded
     };
   }
   const counted = eligible.alreadyCountedReferrerPeriodRaw;
@@ -460,7 +460,8 @@ export function applyHighConfidenceWeightOrBlock(_input: {
 export type ReferralAllocationStatus =
   | 'REFERRAL_APPLIED'
   | 'NO_REFERRAL_RELAY_FULL'
-  | 'BLOCKED_OWNER_DECISION_REQUIRED';
+  | 'BLOCKED_OWNER_DECISION_REQUIRED'
+  | 'INVALID_REFERRAL_BLOCKED';
 
 export type EconomyQuoteBundle = Readonly<{
   readiness: typeof ECONOMY_READINESS;
@@ -497,9 +498,19 @@ export type EconomyQuoteBundle = Readonly<{
   settlementExecution: 'BLOCKED_NOT_IN_OPEN_SDK';
 }>;
 
-/** True when eligible referral cannot become an approved allocation (cap/inexact/missing). */
+/** Explicit referral requested but count invalid or > max five. */
+export function isInvalidReferralInput(referral: ReferralQuoteResult): boolean {
+  if (referral.applied) return false;
+  return (
+    referral.reason === 'REFERRAL_COUNT_INVALID' ||
+    referral.reason === 'REFERRAL_MAX_EDGES_EXCEEDED'
+  );
+}
+
+/** True when eligible referral cannot become an approved allocation (cap/inexact/missing/invalid). */
 export function isReferralAllocationBlocked(referral: ReferralQuoteResult): boolean {
   if (referral.applied) return false;
+  if (isInvalidReferralInput(referral)) return true;
   if (referral.ownerDecisionRequired) return true;
   const reason = referral.reason;
   return (
@@ -531,6 +542,14 @@ export function deriveReferralAllocation(
       finalAllocatedReferrerRaw: referral.referrerRaw,
       finalAllocatedRelayRaw: referral.relayRaw,
       finalAllocatedTotalRaw: total,
+    };
+  }
+  if (isInvalidReferralInput(referral)) {
+    return {
+      allocationStatus: 'INVALID_REFERRAL_BLOCKED',
+      finalAllocatedReferrerRaw: 0n,
+      finalAllocatedRelayRaw: 0n,
+      finalAllocatedTotalRaw: 0n,
     };
   }
   if (isReferralAllocationBlocked(referral)) {

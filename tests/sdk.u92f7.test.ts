@@ -85,7 +85,9 @@ describe('U92F7 final publication preparation', () => {
     assert.match(html, /BLOCKED/);
     assert.match(html, /PRIVATE/);
     assert.match(app, /BLOCKED \/ OWNER DECISION REQUIRED/);
+    assert.match(app, /INVALID\/BLOCKED/);
     assert.match(app, /preReferralPayableRaw/);
     assert.match(app, /finalAllocatedTotalRaw/);
+    assert.match(app, /routeAggregatePayableRaw/);
   });
 });

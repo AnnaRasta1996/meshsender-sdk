@@ -224,28 +224,38 @@ function ensureScenarioA(price) {
 }
 
 function economyFidelityHtml(quote, routeBits) {
-  const blocked = quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED';
-  const referralLine = blocked
-    ? `<span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span> (${text(quote.referral?.reason || 'n/a')}) — final allocated relay+referrer = 0`
-    : quote.referral && quote.referral.applied
-      ? `${rawCpx(quote.referral.referrerRaw)} CPX referrer / ${rawCpx(quote.referral.relayRaw)} CPX relay (97/3, 1 level)`
-      : `not applied (${text(quote.referral?.reason || 'n/a')}) — relay keeps pre-referral payable`;
+  const invalid = quote.allocationStatus === 'INVALID_REFERRAL_BLOCKED';
+  const blocked =
+    quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED' || invalid;
+  const referralLine = invalid
+    ? `<span class="status-warn">INVALID/BLOCKED</span> (${text(quote.referral?.reason || 'n/a')}) — final allocated relay+referrer = 0`
+    : quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED'
+      ? `<span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span> (${text(quote.referral?.reason || 'n/a')}) — final allocated relay+referrer = 0`
+      : quote.referral && quote.referral.applied
+        ? `${rawCpx(quote.referral.referrerRaw)} CPX referrer / ${rawCpx(quote.referral.relayRaw)} CPX relay (97/3, 1 level)`
+        : `not applied (${text(quote.referral?.reason || 'n/a')}) — relay keeps pre-referral payable`;
   const perRelay = (routeBits && routeBits.perRelayPayableRaw) || [];
-  const totalRelay = routeBits && routeBits.totalPayableRaw != null ? routeBits.totalPayableRaw : null;
-  const pre = quote.preReferralPayableRaw != null ? quote.preReferralPayableRaw : quote.actualPayableRaw;
-  const finalTotal =
-    quote.finalAllocatedTotalRaw != null ? quote.finalAllocatedTotalRaw : quote.actualPayableRaw;
+  const routeTotal =
+    routeBits && routeBits.totalPayableRaw != null ? routeBits.totalPayableRaw : null;
+  const singlePre =
+    quote.preReferralPayableRaw != null ? quote.preReferralPayableRaw : quote.actualPayableRaw;
+  // Delivery route: use actual sequential pipe.relay allocations — NOT single-relay quote totals.
+  const routeAggregate = routeTotal != null ? routeTotal : null;
   return `
     <ul>
       <li>Online messaging / receiving: <span class="amount">${rawCpx(quote.onlineMessagingCpxRaw)} / ${rawCpx(quote.onlineReceivingCpxRaw)} CPX</span> (free)</li>
       <li>Successful offline burn target: €${quote.offlineBurnEurTarget} → <span class="amount">${quote.offlineBurnCpx} CPX</span></li>
       <li>Nominal relay: min(1 CPX, €${quote.nominalRelayEurTarget} / price) = <span class="amount">${quote.nominalRelayCpx} CPX</span></li>
       <li>Reward source: <span class="amount">${quote.rewardSource}</span> (senderFundsRelayCpx=${quote.senderFundsRelayCpx})</li>
-      <li>Per-relay payables (route): ${(perRelay.map((r) => rawCpx(r) + ' CPX').join(', ') || 'n/a')}</li>
-      <li>Route aggregate (pre-referral pipeline): <span class="amount">${totalRelay != null ? rawCpx(totalRelay) : rawCpx(pre)} CPX</span></li>
-      <li>Pre-referral capped quote: <span class="amount">${rawCpx(pre)} CPX</span></li>
-      <li>Final allocated relay: <span class="amount">${rawCpx(quote.finalAllocatedRelayRaw ?? 0n)} CPX</span> · referrer <span class="amount">${rawCpx(quote.finalAllocatedReferrerRaw ?? 0n)} CPX</span> · total <span class="amount">${rawCpx(finalTotal)} CPX</span></li>
-      <li>Allocation status: <span class="amount">${text(quote.allocationStatus || 'n/a')}</span>${
+      <li>Per-relay route allocations: ${(perRelay.map((r) => rawCpx(r) + ' CPX').join(', ') || 'n/a')}</li>
+      <li>Route aggregate (actual sequential): <span class="amount">${
+        routeAggregate != null ? rawCpx(routeAggregate) : 'n/a'
+      } CPX</span></li>
+      <li>Single-relay quote (independent of route aggregate): pre-referral <span class="amount">${rawCpx(singlePre)} CPX</span> · quote finalAllocated <span class="amount">${rawCpx(quote.finalAllocatedTotalRaw ?? 0n)} CPX</span></li>
+      <li>Final route allocated total: <span class="amount">${
+        routeAggregate != null ? rawCpx(routeAggregate) : rawCpx(quote.finalAllocatedTotalRaw ?? 0n)
+      } CPX</span></li>
+      <li>Allocation status (single-relay quote): <span class="amount">${text(quote.allocationStatus || 'n/a')}</span>${
         blocked ? ' · <span class="status-warn">not a green payable success</span>' : ''
       }</li>
       <li>Unified node cap: <span class="amount">${rawCpx(quote.nodeCapRaw)} CPX</span> / common 30-day period</li>
@@ -479,12 +489,19 @@ async function runGuidedStep(index, runId) {
       return;
     }
     const quote = pipe.economy;
-    const blocked = quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED';
+    const routeTotal = pipe.relay ? pipe.relay.totalPayableRaw : 0n;
+    const blocked =
+      quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED' ||
+      quote.allocationStatus === 'INVALID_REFERRAL_BLOCKED';
     const statusCls = blocked ? 'status-warn' : 'status-ok';
     const cardCls = blocked ? 'warn' : 'ok';
     setResultCard(`
       <h4><span class="${statusCls}">${
-        blocked ? 'Delivery economy · BLOCKED / OWNER DECISION REQUIRED' : 'Delivery economy'
+        blocked
+          ? quote.allocationStatus === 'INVALID_REFERRAL_BLOCKED'
+            ? 'Delivery economy · INVALID/BLOCKED'
+            : 'Delivery economy · BLOCKED / OWNER DECISION REQUIRED'
+          : 'Delivery economy'
       }</span> · VERIFIED_SYNTHETIC · Scenario A · non-spending</h4>
       ${economyFidelityHtml(quote, pipe.relay)}
     `);
@@ -494,12 +511,16 @@ async function runGuidedStep(index, runId) {
       offlineBurnCpx: quote.offlineBurnCpx,
       nominalRelayCpx: quote.nominalRelayCpx,
       perRelayPayableRaw: pipe.relay ? pipe.relay.perRelayPayableRaw.map(String) : null,
-      totalPayableRaw: pipe.relay ? pipe.relay.totalPayableRaw.toString() : null,
-      preReferralPayableRaw: (quote.preReferralPayableRaw ?? quote.actualPayableRaw).toString(),
-      finalAllocatedReferrerRaw: (quote.finalAllocatedReferrerRaw ?? 0n).toString(),
-      finalAllocatedRelayRaw: (quote.finalAllocatedRelayRaw ?? quote.actualPayableRaw).toString(),
-      finalAllocatedTotalRaw: (quote.finalAllocatedTotalRaw ?? quote.actualPayableRaw).toString(),
-      allocationStatus: quote.allocationStatus,
+      // Route aggregate from actual sequential allocations (not single-relay quote).
+      routeAggregatePayableRaw: routeTotal.toString(),
+      finalRouteAllocatedTotalRaw: routeTotal.toString(),
+      singleRelayQuote: {
+        preReferralPayableRaw: (quote.preReferralPayableRaw ?? quote.actualPayableRaw).toString(),
+        finalAllocatedReferrerRaw: (quote.finalAllocatedReferrerRaw ?? 0n).toString(),
+        finalAllocatedRelayRaw: (quote.finalAllocatedRelayRaw ?? 0n).toString(),
+        finalAllocatedTotalRaw: (quote.finalAllocatedTotalRaw ?? 0n).toString(),
+        allocationStatus: quote.allocationStatus,
+      },
       referral: quote.referral,
       first5000: {
         nodeCount: quote.first5000.nodeCount,
@@ -911,11 +932,20 @@ document.getElementById('btn-econ-delivery').onclick = () => {
   }
   const quote = devState.scenarioA.economy;
   const relay = devState.scenarioA.relay;
-  const blocked = quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED';
+  const routeTotal = relay ? relay.totalPayableRaw : 0n;
+  const invalid = quote.allocationStatus === 'INVALID_REFERRAL_BLOCKED';
+  const blocked =
+    quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED' || invalid;
   setSummary(
     'sum-econ-delivery',
-    `<strong>CURRENT DELIVERY ECONOMY</strong> · burn ${quote.offlineBurnCpx} CPX · pre-referral ${rawCpx(quote.preReferralPayableRaw ?? quote.actualPayableRaw)} · final allocated ${rawCpx(quote.finalAllocatedTotalRaw ?? quote.actualPayableRaw)} CPX · ${text(quote.allocationStatus)}${
-      blocked ? ' · <span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span>' : ''
+    `<strong>CURRENT DELIVERY ECONOMY</strong> · burn ${quote.offlineBurnCpx} CPX · route aggregate ${rawCpx(routeTotal)} CPX · per-relay [${
+      relay ? relay.perRelayPayableRaw.map((r) => rawCpx(r)).join(', ') : ''
+    }] · single-relay quote finalAllocated ${rawCpx(quote.finalAllocatedTotalRaw ?? 0n)} · ${text(quote.allocationStatus)}${
+      invalid
+        ? ' · <span class="status-warn">INVALID/BLOCKED</span>'
+        : blocked
+          ? ' · <span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span>'
+          : ''
     } · ${quote.simulationDisclaimer}`,
     blocked ? 'warn' : 'ok'
   );
@@ -927,12 +957,15 @@ document.getElementById('btn-econ-delivery').onclick = () => {
       offlineBurnCpx: quote.offlineBurnCpx,
       nominalRelayCpx: quote.nominalRelayCpx,
       perRelayPayableRaw: relay ? relay.perRelayPayableRaw.map(String) : null,
-      totalPayableRaw: relay ? relay.totalPayableRaw.toString() : null,
-      preReferralPayableRaw: (quote.preReferralPayableRaw ?? quote.actualPayableRaw).toString(),
-      finalAllocatedReferrerRaw: (quote.finalAllocatedReferrerRaw ?? 0n).toString(),
-      finalAllocatedRelayRaw: (quote.finalAllocatedRelayRaw ?? quote.actualPayableRaw).toString(),
-      finalAllocatedTotalRaw: (quote.finalAllocatedTotalRaw ?? quote.actualPayableRaw).toString(),
-      allocationStatus: quote.allocationStatus,
+      routeAggregatePayableRaw: routeTotal.toString(),
+      finalRouteAllocatedTotalRaw: routeTotal.toString(),
+      singleRelayQuote: {
+        preReferralPayableRaw: (quote.preReferralPayableRaw ?? quote.actualPayableRaw).toString(),
+        finalAllocatedReferrerRaw: (quote.finalAllocatedReferrerRaw ?? 0n).toString(),
+        finalAllocatedRelayRaw: (quote.finalAllocatedRelayRaw ?? 0n).toString(),
+        finalAllocatedTotalRaw: (quote.finalAllocatedTotalRaw ?? 0n).toString(),
+        allocationStatus: quote.allocationStatus,
+      },
       referral: quote.referral,
       first5000: quote.first5000,
       walletToWalletAppBurnRaw: quote.walletToWalletAppBurnRaw.toString(),
@@ -977,14 +1010,20 @@ document.getElementById('btn-econ').onclick = () => {
         : undefined,
     });
     devState.independentQuote = quote;
-    const blocked = quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED';
+    const invalid = quote.allocationStatus === 'INVALID_REFERRAL_BLOCKED';
+    const blocked =
+      quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED' || invalid;
     const referral = quote.referral.applied
       ? `${rawCpx(quote.referral.referrerRaw)}/${rawCpx(quote.referral.relayRaw)}`
       : quote.referral.reason;
     setSummary(
       'sum-econ',
       `<strong>INDEPENDENT ECONOMY CALCULATOR</strong> · hypothetical · burn ${quote.offlineBurnCpx} CPX · pre-referral ${rawCpx(quote.preReferralPayableRaw)} · final allocated ${rawCpx(quote.finalAllocatedTotalRaw)} CPX · ${text(quote.allocationStatus)} · referral ${text(referral)}${
-        blocked ? ' · <span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span>' : ''
+        invalid
+          ? ' · <span class="status-warn">INVALID/BLOCKED</span>'
+          : quote.allocationStatus === 'BLOCKED_OWNER_DECISION_REQUIRED'
+            ? ' · <span class="status-warn">BLOCKED / OWNER DECISION REQUIRED</span>'
+            : ''
       }`,
       blocked ? 'warn' : 'ok'
     );

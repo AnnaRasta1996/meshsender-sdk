@@ -29,7 +29,7 @@
     "build": "tsc -p tsconfig.json && npm run build:browser",
     "build:browser": "node scripts/build-browser.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/sdk.core.test.ts tests/sdk.u92f2.test.ts tests/sdk.u92f3.test.ts tests/sdk.u92f4.test.ts tests/sdk.u92f5.test.ts tests/sdk.u92f6.test.ts tests/sdk.u92f7.test.ts",
+    "test": "node --import tsx --test tests/sdk.core.test.ts tests/sdk.u92f2.test.ts tests/sdk.u92f3.test.ts tests/sdk.u92f4.test.ts tests/sdk.u92f5.test.ts tests/sdk.u92f6.test.ts tests/sdk.u92f7.test.ts tests/sdk.u92f7f1.test.ts",
     "bundle:startup": "node scripts/bundle-startup-check.mjs",
     "demo": "node --import tsx scripts/demo.ts",
     "playground:serve": "npm run build:browser && node scripts/serve-playground.mjs",

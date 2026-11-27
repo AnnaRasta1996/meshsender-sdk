@@ -2426,6 +2426,7 @@ var MeshSenderSDK = (() => {
     generateDemoKeyPair: () => generateDemoKeyPair,
     globalPeriodPoolHardCapRaw: () => globalPeriodPoolHardCapRaw,
     hashMarketAgreement: () => hashMarketAgreement,
+    isInvalidReferralInput: () => isInvalidReferralInput,
     isReferralAllocationBlocked: () => isReferralAllocationBlocked,
     marketBurnRawExactOrFail: () => marketBurnRawExactOrFail,
     nodeCapLimitedNominalRaw: () => nodeCapLimitedNominalRaw,
@@ -3738,7 +3739,8 @@ var MeshSenderSDK = (() => {
         applied: false,
         reason: "REFERRAL_COUNT_INVALID",
         referrerRaw: 0n,
-        relayRaw: input.actualPayableRaw
+        relayRaw: 0n
+        // never silent redistribute on invalid referral input
       };
     }
     if (count > REFERRAL_MAX_EDGES) {
@@ -3746,7 +3748,8 @@ var MeshSenderSDK = (() => {
         applied: false,
         reason: "REFERRAL_MAX_EDGES_EXCEEDED",
         referrerRaw: 0n,
-        relayRaw: input.actualPayableRaw
+        relayRaw: 0n
+        // never silent redistribute when max five exceeded
       };
     }
     const counted = eligible.alreadyCountedReferrerPeriodRaw;
@@ -3866,8 +3869,13 @@ var MeshSenderSDK = (() => {
   function applyHighConfidenceWeightOrBlock(_input) {
     throw new Error("DG3_HIGH_CONFIDENCE_WEIGHT_USE_UNRESOLVED");
   }
+  function isInvalidReferralInput(referral) {
+    if (referral.applied) return false;
+    return referral.reason === "REFERRAL_COUNT_INVALID" || referral.reason === "REFERRAL_MAX_EDGES_EXCEEDED";
+  }
   function isReferralAllocationBlocked(referral) {
     if (referral.applied) return false;
+    if (isInvalidReferralInput(referral)) return true;
     if (referral.ownerDecisionRequired) return true;
     const reason = referral.reason;
     return reason === "MISSING_REFERRER_CAP_INPUT" || reason === REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED || reason === "REFERRER_COUNTED_ABOVE_CAP" || reason === "INVALID_REFERRER_COUNTED_RAW" || String(reason).includes("INEXACT");
@@ -3884,6 +3892,14 @@ var MeshSenderSDK = (() => {
         finalAllocatedReferrerRaw: referral.referrerRaw,
         finalAllocatedRelayRaw: referral.relayRaw,
         finalAllocatedTotalRaw: total
+      };
+    }
+    if (isInvalidReferralInput(referral)) {
+      return {
+        allocationStatus: "INVALID_REFERRAL_BLOCKED",
+        finalAllocatedReferrerRaw: 0n,
+        finalAllocatedRelayRaw: 0n,
+        finalAllocatedTotalRaw: 0n
       };
     }
     if (isReferralAllocationBlocked(referral)) {
