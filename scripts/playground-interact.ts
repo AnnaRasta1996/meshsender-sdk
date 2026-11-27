@@ -68,10 +68,14 @@ async function main(): Promise<void> {
 
   const pageOk =
     html.includes('data-testid="btn-offline"') &&
+    html.includes('data-testid="btn-guided"') &&
+    html.includes('Humanity Is the Infrastructure') &&
     html.includes('meshsender-sdk.bundle.js') &&
     !html.includes('sdk-browser.js') &&
     js.length > 1000 &&
-    app.includes('MeshSenderSDK');
+    app.includes('MeshSenderSDK') &&
+    app.includes('Need successful delivery first') &&
+    !app.includes("getElementById('btn-offline').click()");
 
   // Execute the same interactive flows the UI buttons trigger.
   const pipe = runSimulatedDeliveryPipeline({

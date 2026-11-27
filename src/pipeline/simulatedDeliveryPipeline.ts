@@ -139,10 +139,17 @@ export function runSimulatedDeliveryPipeline(input: {
       simulation.events,
       simulation.deliveryRoute
     );
-    const globalRemainingRaw =
-      input.globalRemainingRawOverride !== undefined
-        ? input.globalRemainingRawOverride
-        : economy.globalRemainingRaw;
+    // Override may only reduce the canonical remaining budget — never inflate it.
+    let globalRemainingRaw = economy.globalRemainingRaw;
+    if (input.globalRemainingRawOverride !== undefined) {
+      if (input.globalRemainingRawOverride < 0n) {
+        throw new Error('ECONOMY_GLOBAL_OVERRIDE_NEGATIVE');
+      }
+      globalRemainingRaw =
+        input.globalRemainingRawOverride < economy.globalRemainingRaw
+          ? input.globalRemainingRawOverride
+          : economy.globalRemainingRaw;
+    }
     const countedByRelay =
       input.alreadyCountedNodePeriodRawByRelay ??
       Array.from({ length: intermediates }, () => input.alreadyCountedNodePeriodRaw ?? 0n);

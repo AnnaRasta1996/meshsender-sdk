@@ -3995,7 +3995,13 @@ var MeshSenderSDK = (() => {
         simulation.events,
         simulation.deliveryRoute
       );
-      const globalRemainingRaw = input.globalRemainingRawOverride !== void 0 ? input.globalRemainingRawOverride : economy.globalRemainingRaw;
+      let globalRemainingRaw = economy.globalRemainingRaw;
+      if (input.globalRemainingRawOverride !== void 0) {
+        if (input.globalRemainingRawOverride < 0n) {
+          throw new Error("ECONOMY_GLOBAL_OVERRIDE_NEGATIVE");
+        }
+        globalRemainingRaw = input.globalRemainingRawOverride < economy.globalRemainingRaw ? input.globalRemainingRawOverride : economy.globalRemainingRaw;
+      }
       const countedByRelay = input.alreadyCountedNodePeriodRawByRelay ?? Array.from({ length: intermediates }, () => input.alreadyCountedNodePeriodRaw ?? 0n);
       const allocation = allocateSequentialRelayRewards({
         relayCount: intermediates,

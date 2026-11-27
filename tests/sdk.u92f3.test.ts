@@ -106,4 +106,5 @@ describe('U92F3 browser + reward budget', () => {
   it('F02: scale constant sanity (0.2 CPX raw)', () => {
     assert.equal((CPX_RAW_SCALE * 2n) / 10n, 200_000n);
   });
+
 });

@@ -7,48 +7,112 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header>
-      <h1>MeshSender Open SDK</h1>
-      <p>
-        Same TypeScript SDK modules, browser-bundled. Offline SCF, proofs, paged relay verify,
-        economy, Market quote, Node Passport possession proof, live Solana read-only.
-      </p>
-      <div class="badges">
-        <span class="badge">SIMULATED</span>
-        <span class="badge">VERIFIED_SYNTHETIC</span>
-        <span class="badge">LIVE_READ_ONLY</span>
-        <span class="badge">PENDING hardware/settlement</span>
+    <div class="topbar">
+      <div class="brand-mark">MeshSender</div>
+      <div class="badges" aria-label="Readiness labels">
+        <span class="badge sim">SIMULATED</span>
+        <span class="badge synth">VERIFIED_SYNTHETIC</span>
+        <span class="badge live">LIVE_READ_ONLY</span>
+        <span class="badge pending">PENDING hardware / settlement</span>
       </div>
+    </div>
+
+    <header class="hero">
+      <p class="eyebrow">Open SDK · Hackathon Flagship</p>
+      <h1>MeshSender</h1>
+      <p class="headline">Humanity Is the Infrastructure.</p>
+      <p class="lede">
+        Offline-first communication sovereignty: encrypted messages travel phone-to-phone when the
+        internet fails. Humans and devices become a DePIN mesh — BLE, Wi-Fi Direct, and LoRa —
+        with Node Passport possession proofs, a Solana CPX economy funded by the Reward Reserve,
+        and Paradox Market peer payments with zero platform fee.
+      </p>
+      <div class="cta-row">
+        <button id="btn-guided" data-testid="btn-guided" class="cta-primary">Start Guided Demo</button>
+        <button id="btn-dev-mode" data-testid="btn-dev-mode" class="cta-secondary">Developer Mode</button>
+      </div>
+      <p class="disclaimer">
+        This playground is simulation + live read-only inspection. It never claims physical-device
+        radio delivery or live settlement spending.
+      </p>
     </header>
 
-    <main>
+    <section id="guided" class="guided" hidden>
+      <div class="guided-head">
+        <h2>Guided story</h2>
+        <p>One connected walkthrough — Alice to Bob without continuous internet.</p>
+        <div class="step-rail" id="step-rail" aria-label="Demo steps"></div>
+      </div>
+
+      <article class="story-panel" id="story-panel">
+        <div class="story-copy">
+          <p class="step-kicker" id="step-kicker">Step 1</p>
+          <h3 id="step-title">Ready when you are</h3>
+          <p id="step-body" class="step-body">Press Continue to begin.</p>
+          <div class="story-actions">
+            <button id="btn-step" data-testid="btn-step" class="cta-primary">Continue</button>
+            <button id="btn-step-back" class="cta-secondary" type="button">Back</button>
+          </div>
+        </div>
+        <div class="story-stage">
+          <div id="net-viz" class="net-viz phone-stage" aria-live="polite"></div>
+          <div id="result-card" class="result-card" data-testid="result-card">
+            <p class="muted">Results appear here after each step.</p>
+          </div>
+        </div>
+      </article>
+
+      <details class="tech-evidence" id="guided-tech">
+        <summary>Technical Evidence (raw JSON)</summary>
+        <pre id="guided-json" data-testid="guided-json">—</pre>
+      </details>
+    </section>
+
+    <main id="developer" class="developer" hidden>
+      <div class="dev-banner">
+        <h2>Developer Mode</h2>
+        <p>Every existing SDK playground control — JSON-first for engineers.</p>
+      </div>
+
       <section class="wide">
         <h2>Network progression</h2>
         <p class="hint">Visual carrier route after offline simulation.</p>
-        <div id="net-viz" class="net-viz"></div>
+        <div id="net-viz-dev" class="net-viz"></div>
         <div class="row">
           <button id="btn-offline" data-testid="btn-offline">Run offline delivery</button>
           <button id="btn-outage" class="secondary" data-testid="btn-outage">Run with outage/expiry miss</button>
         </div>
-        <pre id="out-offline" data-testid="out-offline">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-offline" data-testid="out-offline">Ready.</pre>
+        </details>
       </section>
 
       <section>
         <h2>Delivery proof tamper</h2>
         <button id="btn-proof" data-testid="btn-proof">Verify + tamper</button>
-        <pre id="out-proof" data-testid="out-proof">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-proof" data-testid="out-proof">Ready.</pre>
+        </details>
       </section>
 
       <section>
         <h2>Paged relay verify</h2>
         <button id="btn-relay" data-testid="btn-relay">Build + verify pages</button>
-        <pre id="out-relay" data-testid="out-relay">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-relay" data-testid="out-relay">Ready.</pre>
+        </details>
       </section>
 
       <section>
         <h2>Node Passport</h2>
         <button id="btn-passport" data-testid="btn-passport">Possession proof verify</button>
-        <pre id="out-passport" data-testid="out-passport">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-passport" data-testid="out-passport">Ready.</pre>
+        </details>
       </section>
 
       <section>
@@ -56,26 +120,42 @@
         <label for="price">CPX EUR price</label>
         <input id="price" data-testid="price" value="0.0005" />
         <button id="btn-econ" data-testid="btn-econ">Quote burn + payable</button>
-        <pre id="out-econ" data-testid="out-econ">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-econ" data-testid="out-econ">Ready.</pre>
+        </details>
       </section>
 
       <section>
         <h2>Market quote</h2>
         <label for="principal">Principal CPX (exact 6dp)</label>
         <input id="principal" data-testid="principal" value="10.000000" />
+        <label for="market-cat">Category</label>
+        <select id="market-cat" data-testid="market-cat">
+          <option value="product">product</option>
+          <option value="service">service</option>
+          <option value="housing_guarantee">housing_guarantee</option>
+        </select>
         <button id="btn-market" data-testid="btn-market">Quote direct payment</button>
-        <pre id="out-market" data-testid="out-market">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-market" data-testid="out-market">Ready.</pre>
+        </details>
       </section>
 
       <section class="wide">
         <h2>Live Solana read-only</h2>
         <button id="btn-solana" data-testid="btn-solana">Inspect mint + dual-RPC program</button>
-        <pre id="out-solana" data-testid="out-solana">Ready.</pre>
+        <details class="tech-evidence" open>
+          <summary>Technical Evidence</summary>
+          <pre id="out-solana" data-testid="out-solana">Ready.</pre>
+        </details>
       </section>
     </main>
 
     <footer>
-      CPX mint and settlement program are separate. MIT proposed for SDK only. Public Pages not enabled.
+      CPX mint <code>9s3Cc…</code> and settlement program <code>GSRFUJ…</code> are separate.
+      MIT proposed for SDK only. GitHub Pages workflow exists but is <strong>not enabled</strong>.
       Physical radios / production settlement / U54F8: PENDING.
     </footer>
 

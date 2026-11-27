@@ -78,20 +78,39 @@ Local path import (this repo):
 import { runSimulatedDeliveryPipeline } from './dist/index.js';
 ```
 
-## Developer Playground
+## Judge Playground (guided demo)
 
-`playground/` is powered by **`meshsender-sdk.bundle.js`** generated from the same TypeScript source (`npm run build:browser`). Divergent handwritten algorithm copies are not used.
+`playground/` is powered by **`meshsender-sdk.bundle.js`** generated from the same TypeScript source (`npm run build:browser`). No divergent handwritten algorithm copies.
+
+### Local demo for judges
 
 ```bash
+npm install
+npm run build:browser
 npm run playground:serve
-# http://127.0.0.1:8787/
-npm run playground:interact
+# open http://127.0.0.1:8787/
 ```
 
-## GitHub Pages (not enabled)
+1. Click **Start Guided Demo** — headline *Humanity Is the Infrastructure.*
+2. Press **Continue** through the 8-step story (offline delivery → outage → proof → relay → passport → economy → Market → live Solana).
+3. Use **Developer Mode** for every existing JSON/control surface.
+4. Readiness badges stay visible: `SIMULATED` / `VERIFIED_SYNTHETIC` / `LIVE_READ_ONLY` / `PENDING`.
 
-Workflow stub: `.github/workflows/pages.yml` prepares the allowlisted `playground/` artifact only.  
-**Do not enable Pages / public open until owner approval after independent review.**
+```bash
+npm run playground:interact   # page + SDK flow checks
+npm run bundle:startup        # browser-sandbox bundle boot
+```
+
+## GitHub Pages (prepared, still disabled)
+
+Workflow stub: `.github/workflows/pages.yml` (`pages-prepare-blocked`).
+
+Owner-only steps **after** independent review + explicit approval:
+
+1. Confirm allowlist + MIT for this SDK package only.
+2. Enable GitHub Pages for the repository (Settings → Pages) **only when approved**.
+3. Allow the workflow to upload the `playground/` artifact (includes generated bundle).
+4. Do **not** force-enable or publish from this unit — public open remains **BLOCKED**.
 
 ## License
 
