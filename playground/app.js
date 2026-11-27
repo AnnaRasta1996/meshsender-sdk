@@ -61,6 +61,15 @@ function rawCpx(raw) {
   }
 }
 
+/** Safely render external RPC/explorer values as text (no HTML injection). */
+function text(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function collapseGuidedTech() {
   const d = document.getElementById('guided-tech');
   if (d) d.open = false;
@@ -546,16 +555,19 @@ async function runGuidedStep(index, runId) {
       setResultCard(`
         <h4><span class="${statusSpan}">Solana inspection</span> · LIVE_READ_ONLY</h4>
         <ul>
-          <li>CPX mint status: <span class="amount">${mint.status}</span>${
-            mint.decimals != null ? ` · decimals ${mint.decimals}` : ''
-          }${mint.supplyUi ? ` · supply ${mint.supplyUi}` : ''}</li>
-          <li>Failure kind: <span class="amount">${mint.failureKind || (mint.usedFallback ? 'PRIMARY_FAILED_SECONDARY_OK' : 'none')}</span></li>
-          <li>Used secondary fallback: <span class="amount">${!!mint.usedFallback}</span></li>
-          <li>Mint: <span class="amount">${sdk.CPX_MAINNET_MINT_ADDRESS}</span></li>
-          <li>Program: <span class="amount">${sdk.MESHSENDER_PROGRAM_ID}</span></li>
-          <li>Program dual-RPC: <span class="amount">${dual.agreement}</span></li>
-          <li>Solscan mint: <a href="${sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan}" target="_blank" rel="noopener">${sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan}</a></li>
-          <li>Phantom token: <a href="${sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom}" target="_blank" rel="noopener">${sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom}</a></li>
+          <li>CPX mint status: <span class="amount">${text(mint.status)}</span></li>
+          <li>Supply UI: <span class="amount">${text(mint.supplyUi ?? '')}</span> · raw <span class="amount">${text(mint.supplyRaw ?? '')}</span></li>
+          <li>Decimals: <span class="amount">${text(mint.decimals ?? '')}</span> · source <span class="amount">${text(mint.supplySource ?? '')}</span></li>
+          <li>Mint authority revoked: <span class="amount">${text(mint.mintAuthorityRevoked)}</span> · freeze revoked: <span class="amount">${text(mint.freezeAuthorityRevoked)}</span></li>
+          <li>Source RPC: <span class="amount">${text(mint.rpcUrl ?? '')}</span> · slot <span class="amount">${text(mint.slot)}</span></li>
+          <li>Inspected at: <span class="amount">${text(mint.inspectedAtIso ?? '')}</span></li>
+          <li>Failure kind: <span class="amount">${text(mint.failureKind || (mint.usedFallback ? 'PRIMARY_FAILED_SECONDARY_OK' : 'none'))}</span></li>
+          <li>Used fallback: <span class="amount">${text(!!mint.usedFallback)}</span></li>
+          <li>Mint: <span class="amount">${text(sdk.CPX_MAINNET_MINT_ADDRESS)}</span></li>
+          <li>Program: <span class="amount">${text(sdk.MESHSENDER_PROGRAM_ID)}</span></li>
+          <li>Program dual-RPC: <span class="amount">${text(dual.agreement)}</span></li>
+          <li>Solscan: <a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan)}" target="_blank" rel="noopener">${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan)}</a></li>
+          <li>Phantom.com: <a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom)}" target="_blank" rel="noopener">${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom)}</a></li>
           <li>Writes enabled: <span class="amount">false</span></li>
         </ul>
       `);
@@ -564,7 +576,14 @@ async function runGuidedStep(index, runId) {
         failureKind: mint.failureKind || null,
         usedFallback: !!mint.usedFallback,
         decimals: mint.decimals,
+        supplyRaw: mint.supplyRaw,
         supplyUi: mint.supplyUi,
+        supplySource: mint.supplySource,
+        mintAuthorityRevoked: mint.mintAuthorityRevoked,
+        freezeAuthorityRevoked: mint.freezeAuthorityRevoked,
+        rpcUrl: mint.rpcUrl,
+        slot: mint.slot,
+        inspectedAtIso: mint.inspectedAtIso,
         programAgreement: dual.agreement,
         programResults: dual.results,
         explorer: sdk.PUBLIC_EXPLORER_LINKS,
@@ -903,17 +922,27 @@ function resetIndependentQuote() {
 document.getElementById('price').addEventListener('input', resetIndependentQuote);
 document.getElementById('referral-eligible').addEventListener('change', resetIndependentQuote);
 document.getElementById('referral-count').addEventListener('input', resetIndependentQuote);
+document.getElementById('referrer-counted').addEventListener('input', resetIndependentQuote);
 
 document.getElementById('btn-econ').onclick = () => {
   try {
     const eligible = document.getElementById('referral-eligible').checked;
     const count = Number(document.getElementById('referral-count').value);
+    const countedRawText = document.getElementById('referrer-counted').value.trim();
+    let alreadyCountedReferrerPeriodRaw = null;
+    if (countedRawText !== '') {
+      alreadyCountedReferrerPeriodRaw = BigInt(countedRawText);
+    }
     const quote = sdk.quoteDeliveryEconomy({
       cpxEurPriceDecimal: document.getElementById('price').value.trim(),
       alreadyCountedNodePeriodRaw: 0n,
       globalAlreadyPaidRaw: 0n,
       referralEligibility: eligible
-        ? { hasValidReferralRelationship: true, validReferredCountForReferrer: count }
+        ? {
+            hasValidReferralRelationship: true,
+            validReferredCountForReferrer: count,
+            alreadyCountedReferrerPeriodRaw,
+          }
         : undefined,
     });
     devState.independentQuote = quote;
@@ -1000,21 +1029,31 @@ async function runDevSolana(includeSnapshot) {
   setSummary('sum-solana', 'Fetching live read-only…', 'warn');
   show('out-solana', 'Fetching…', 'warn');
   try {
-    const mint = await sdk.fetchInspectCpxMint();
-    if (runId !== devRunId) return;
-    const dual = await sdk.fetchInspectProgramDualRpc();
-    if (runId !== devRunId) return;
+    let mint = devState.solana && devState.solana.mint;
+    let dual = devState.solana && devState.solana.dual;
+    if (!includeSnapshot || !mint || !dual) {
+      mint = await sdk.fetchInspectCpxMint();
+      if (runId !== devRunId) return;
+      dual = await sdk.fetchInspectProgramDualRpc();
+      if (runId !== devRunId) return;
+      devState.solana = { mint, dual };
+    }
     let snapshot = null;
     if (includeSnapshot) {
-      snapshot = await sdk.fetchHistoricalRpcSnapshot();
+      // Reuse genuine existing results — no redundant RPC when already captured.
+      snapshot = await sdk.fetchHistoricalRpcSnapshot({ mint, programDualRpc: dual });
       if (runId !== devRunId) return;
     }
     const cls = solanaStatusClass(mint.status, dual.agreement);
     setSummary(
       'sum-solana',
-      `mint=${mint.status}${mint.failureKind ? ' (' + mint.failureKind + ')' : ''} · fallback=${!!mint.usedFallback} · program=${dual.agreement}${
-        snapshot ? ' · historical snapshot @ ' + snapshot.capturedAtIso + ' (NOT LIVE)' : ''
-      }<br/><a href="${sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan}" target="_blank" rel="noopener">Solscan</a> · <a href="${sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom}" target="_blank" rel="noopener">Phantom</a>`,
+      `mint=${text(mint.status)} · supply=${text(mint.supplyUi ?? '')} · decimals=${text(mint.decimals ?? '')} · rpc=${text(mint.rpcUrl ?? '')} · slot=${text(mint.slot)} · at=${text(mint.inspectedAtIso ?? '')}${
+        mint.failureKind ? ' · ' + text(mint.failureKind) : ''
+      } · fallback=${text(!!mint.usedFallback)} · program=${text(dual.agreement)}${
+        snapshot
+          ? ' · historical @ ' + text(snapshot.capturedAtIso) + ' reused=' + text(snapshot.reusedExistingResults) + ' (NOT LIVE)'
+          : ''
+      }<br/><a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan)}" target="_blank" rel="noopener">Solscan</a> · <a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom)}" target="_blank" rel="noopener">Phantom.com</a>`,
       cls
     );
     show(
@@ -1023,11 +1062,17 @@ async function runDevSolana(includeSnapshot) {
         mintStatus: mint.status,
         failureKind: mint.failureKind || null,
         usedFallback: !!mint.usedFallback,
-        primary: mint.primary || null,
+        primary: mint.primary || mint.primaryError || null,
         secondary: mint.secondary || null,
         decimals: mint.decimals,
+        supplyRaw: mint.supplyRaw,
         supplyUi: mint.supplyUi,
+        supplySource: mint.supplySource,
         mintAuthorityRevoked: mint.mintAuthorityRevoked,
+        freezeAuthorityRevoked: mint.freezeAuthorityRevoked,
+        rpcUrl: mint.rpcUrl,
+        slot: mint.slot,
+        inspectedAtIso: mint.inspectedAtIso,
         programAgreement: dual.agreement,
         programResults: dual.results.map((r) => ({
           rpcUrl: r.rpcUrl,
@@ -1042,6 +1087,7 @@ async function runDevSolana(includeSnapshot) {
           ? {
               presentation: snapshot.presentation,
               capturedAtIso: snapshot.capturedAtIso,
+              reusedExistingResults: snapshot.reusedExistingResults,
             }
           : null,
         writesEnabled: false,
@@ -1050,7 +1096,7 @@ async function runDevSolana(includeSnapshot) {
     );
   } catch (e) {
     if (runId !== devRunId) return;
-    setSummary('sum-solana', String(e.message || e), 'bad');
+    setSummary('sum-solana', text(e.message || e), 'bad');
     show('out-solana', { error: String(e.message || e) }, 'bad');
   } finally {
     if (runId === devRunId) devBusy = false;

@@ -201,6 +201,7 @@ export function globalPeriodPoolHardCapRaw(rewardReserveRawAtPeriodStart: bigint
   ).quotient;
 }
 
+/** Pure 97/3 percentage calculation only — not a payable allocation. */
 export function referralSplitRawExactOrFail(actualRewardRaw: bigint): {
   referrerRaw: bigint;
   relayRaw: bigint;
@@ -213,11 +214,28 @@ export function referralSplitRawExactOrFail(actualRewardRaw: bigint): {
   return { referrerRaw: rem.quotient, relayRaw: actualRewardRaw - rem.quotient };
 }
 
+/** Alias: pure percentage calculation distinct from simulated payable allocation. */
+export const referralPercentageSplitExactOrFail = referralSplitRawExactOrFail;
+
+/** Canonical DG4/U35 blocked outcome when referrer unified cap cannot cover 3%. */
+export const REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED =
+  'U35_REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED' as const;
+
 export type ReferralEligibility = Readonly<{
   /** Explicit opt-in. Never invent automatic referral. */
   hasValidReferralRelationship: boolean;
   /** Valid referred-node count for this referrer (max 5). */
   validReferredCountForReferrer?: number;
+  /**
+   * Combined relay+referral already counted for referrer in the common period.
+   * Required when eligible. `null` / omitted = missing cap input (not unlimited).
+   */
+  alreadyCountedReferrerPeriodRaw?: bigint | null;
+}>;
+
+export type ReferralPercentageSplit = Readonly<{
+  referrerRaw: bigint;
+  relayRaw: bigint;
 }>;
 
 export type ReferralQuoteResult =
@@ -226,8 +244,11 @@ export type ReferralQuoteResult =
       levels: 1;
       referrerRaw: bigint;
       relayRaw: bigint;
+      percentageSplit: ReferralPercentageSplit;
       maxValidReferrals: typeof REFERRAL_MAX_EDGES;
       countsInsideUnifiedNodeCap: true;
+      referrerAlreadyCountedRaw: bigint;
+      referrerRemainingRaw: bigint;
     }>
   | Readonly<{
       applied: false;
@@ -236,14 +257,24 @@ export type ReferralQuoteResult =
         | 'REFERRAL_NOT_ELIGIBLE'
         | 'REFERRAL_MAX_EDGES_EXCEEDED'
         | 'REFERRAL_COUNT_INVALID'
+        | 'MISSING_REFERRER_CAP_INPUT'
+        | 'REFERRER_COUNTED_ABOVE_CAP'
+        | typeof REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED
         | string;
       referrerRaw: 0n;
+      /** When cap/owner-decision blocked, stays 0 — never silently redistribute. */
       relayRaw: bigint;
+      percentageSplit?: ReferralPercentageSplit;
+      referrerAlreadyCountedRaw?: bigint;
+      referrerRemainingRaw?: bigint;
+      ownerDecisionRequired?: boolean;
     }>;
 
 /**
  * Conditional eligible referral only (97/3, one level, max five).
- * No automatic referral. Inexact or unresolved allocation → blocked.
+ * Validates referrer unified 1000 CPX remaining before applying allocation.
+ * Pure percentage ≠ actual simulated payable allocation.
+ * No automatic referral. Inexact / missing cap / insufficient cap → blocked.
  */
 export function conditionalReferralSplit(input: {
   actualPayableRaw: bigint;
@@ -276,24 +307,72 @@ export function conditionalReferralSplit(input: {
       relayRaw: input.actualPayableRaw,
     };
   }
-  try {
-    const split = referralSplitRawExactOrFail(input.actualPayableRaw);
+  const counted = eligible.alreadyCountedReferrerPeriodRaw;
+  if (counted === undefined || counted === null) {
     return {
-      applied: true,
-      levels: 1,
-      referrerRaw: split.referrerRaw,
-      relayRaw: split.relayRaw,
-      maxValidReferrals: REFERRAL_MAX_EDGES,
-      countsInsideUnifiedNodeCap: true,
+      applied: false,
+      reason: 'MISSING_REFERRER_CAP_INPUT',
+      referrerRaw: 0n,
+      relayRaw: 0n,
+      ownerDecisionRequired: true,
     };
+  }
+  if (counted < 0n) {
+    return {
+      applied: false,
+      reason: 'INVALID_REFERRER_COUNTED_RAW',
+      referrerRaw: 0n,
+      relayRaw: 0n,
+      ownerDecisionRequired: true,
+    };
+  }
+  if (counted > NODE_REWARD_CAP_RAW) {
+    return {
+      applied: false,
+      reason: 'REFERRER_COUNTED_ABOVE_CAP',
+      referrerRaw: 0n,
+      relayRaw: 0n,
+      referrerAlreadyCountedRaw: counted,
+      referrerRemainingRaw: 0n,
+      ownerDecisionRequired: true,
+    };
+  }
+  let percentageSplit: ReferralPercentageSplit;
+  try {
+    percentageSplit = referralPercentageSplitExactOrFail(input.actualPayableRaw);
   } catch (e) {
     return {
       applied: false,
       reason: e instanceof Error ? e.message : String(e),
       referrerRaw: 0n,
-      relayRaw: input.actualPayableRaw,
+      relayRaw: 0n,
+      ownerDecisionRequired: true,
     };
   }
+  const referrerRemainingRaw = nodeRemainingRaw(counted);
+  if (percentageSplit.referrerRaw > referrerRemainingRaw) {
+    return {
+      applied: false,
+      reason: REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED,
+      referrerRaw: 0n,
+      relayRaw: 0n,
+      percentageSplit,
+      referrerAlreadyCountedRaw: counted,
+      referrerRemainingRaw,
+      ownerDecisionRequired: true,
+    };
+  }
+  return {
+    applied: true,
+    levels: 1,
+    referrerRaw: percentageSplit.referrerRaw,
+    relayRaw: percentageSplit.relayRaw,
+    percentageSplit,
+    maxValidReferrals: REFERRAL_MAX_EDGES,
+    countsInsideUnifiedNodeCap: true,
+    referrerAlreadyCountedRaw: counted,
+    referrerRemainingRaw,
+  };
 }
 
 /** Failed/expired delivery: zero service burn and zero relay rewards. */

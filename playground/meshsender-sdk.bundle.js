@@ -2338,6 +2338,8 @@ var MeshSenderSDK = (() => {
   var browser_entry_exports = {};
   __export(browser_entry_exports, {
     BROWSER_BUNDLE: () => BROWSER_BUNDLE,
+    BROWSER_FALLBACK_MINT_RPC: () => BROWSER_FALLBACK_MINT_RPC,
+    BROWSER_PREFERRED_MINT_RPC: () => BROWSER_PREFERRED_MINT_RPC,
     CPX_DECIMALS: () => CPX_DECIMALS,
     CPX_DECIMALS_EXPECTED: () => CPX_DECIMALS_EXPECTED,
     CPX_MAINNET_MINT_ADDRESS: () => CPX_MAINNET_MINT_ADDRESS,
@@ -2372,11 +2374,13 @@ var MeshSenderSDK = (() => {
     REFERRAL_REFERRER_NUM: () => REFERRAL_REFERRER_NUM,
     REFERRAL_RELAY_DEN: () => REFERRAL_RELAY_DEN,
     REFERRAL_RELAY_NUM: () => REFERRAL_RELAY_NUM,
+    REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED: () => REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED,
     RELAY_EVIDENCE_READINESS: () => RELAY_EVIDENCE_READINESS,
     RELAY_REWARD_CPX_CEILING_RAW: () => RELAY_REWARD_CPX_CEILING_RAW,
     RELAY_REWARD_EUR_TARGET: () => RELAY_REWARD_EUR_TARGET,
     RELAY_SOL_EXPENSE: () => RELAY_SOL_EXPENSE,
     REWARD_PERIOD_DURATION_MS: () => REWARD_PERIOD_DURATION_MS,
+    RPC_ENDPOINT_COOLDOWN_MS: () => RPC_ENDPOINT_COOLDOWN_MS,
     Readiness: () => Readiness,
     SDK_DEMO_AGREEMENT_DOMAIN: () => SDK_DEMO_AGREEMENT_DOMAIN,
     SDK_DEMO_DELIVERY_PROOF_DOMAIN: () => SDK_DEMO_DELIVERY_PROOF_DOMAIN,
@@ -2417,6 +2421,7 @@ var MeshSenderSDK = (() => {
     fetchInspectProgramDualRpc: () => fetchInspectProgramDualRpc,
     first5000Allocation: () => first5000Allocation,
     foldCommitment: () => foldCommitment,
+    formatCpxSupplyUiFromRaw: () => formatCpxSupplyUiFromRaw,
     generateDemoKeyPair: () => generateDemoKeyPair,
     globalPeriodPoolHardCapRaw: () => globalPeriodPoolHardCapRaw,
     hashMarketAgreement: () => hashMarketAgreement,
@@ -2435,7 +2440,9 @@ var MeshSenderSDK = (() => {
     rationalCpxToRawDg2: () => rationalCpxToRawDg2,
     rawToCpxDecimal: () => rawToCpxDecimal,
     reduceRational: () => reduceRational,
+    referralPercentageSplitExactOrFail: () => referralPercentageSplitExactOrFail,
     referralSplitRawExactOrFail: () => referralSplitRawExactOrFail,
+    resetRpcEndpointCooldownsForTests: () => resetRpcEndpointCooldownsForTests,
     runOfflineStoreCarryForward: () => runOfflineStoreCarryForward,
     runSimulatedDeliveryPipeline: () => runSimulatedDeliveryPipeline,
     signAgreementHash: () => signAgreementHash,
@@ -3710,6 +3717,8 @@ var MeshSenderSDK = (() => {
     }
     return { referrerRaw: rem.quotient, relayRaw: actualRewardRaw - rem.quotient };
   }
+  var referralPercentageSplitExactOrFail = referralSplitRawExactOrFail;
+  var REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED = "U35_REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED";
   function conditionalReferralSplit(input) {
     assertNonNegative(input.actualPayableRaw, "actualPayableRaw");
     const eligible = input.eligibility;
@@ -3738,24 +3747,72 @@ var MeshSenderSDK = (() => {
         relayRaw: input.actualPayableRaw
       };
     }
-    try {
-      const split = referralSplitRawExactOrFail(input.actualPayableRaw);
+    const counted = eligible.alreadyCountedReferrerPeriodRaw;
+    if (counted === void 0 || counted === null) {
       return {
-        applied: true,
-        levels: 1,
-        referrerRaw: split.referrerRaw,
-        relayRaw: split.relayRaw,
-        maxValidReferrals: REFERRAL_MAX_EDGES,
-        countsInsideUnifiedNodeCap: true
+        applied: false,
+        reason: "MISSING_REFERRER_CAP_INPUT",
+        referrerRaw: 0n,
+        relayRaw: 0n,
+        ownerDecisionRequired: true
       };
+    }
+    if (counted < 0n) {
+      return {
+        applied: false,
+        reason: "INVALID_REFERRER_COUNTED_RAW",
+        referrerRaw: 0n,
+        relayRaw: 0n,
+        ownerDecisionRequired: true
+      };
+    }
+    if (counted > NODE_REWARD_CAP_RAW) {
+      return {
+        applied: false,
+        reason: "REFERRER_COUNTED_ABOVE_CAP",
+        referrerRaw: 0n,
+        relayRaw: 0n,
+        referrerAlreadyCountedRaw: counted,
+        referrerRemainingRaw: 0n,
+        ownerDecisionRequired: true
+      };
+    }
+    let percentageSplit;
+    try {
+      percentageSplit = referralPercentageSplitExactOrFail(input.actualPayableRaw);
     } catch (e) {
       return {
         applied: false,
         reason: e instanceof Error ? e.message : String(e),
         referrerRaw: 0n,
-        relayRaw: input.actualPayableRaw
+        relayRaw: 0n,
+        ownerDecisionRequired: true
       };
     }
+    const referrerRemainingRaw = nodeRemainingRaw(counted);
+    if (percentageSplit.referrerRaw > referrerRemainingRaw) {
+      return {
+        applied: false,
+        reason: REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED,
+        referrerRaw: 0n,
+        relayRaw: 0n,
+        percentageSplit,
+        referrerAlreadyCountedRaw: counted,
+        referrerRemainingRaw,
+        ownerDecisionRequired: true
+      };
+    }
+    return {
+      applied: true,
+      levels: 1,
+      referrerRaw: percentageSplit.referrerRaw,
+      relayRaw: percentageSplit.relayRaw,
+      percentageSplit,
+      maxValidReferrals: REFERRAL_MAX_EDGES,
+      countsInsideUnifiedNodeCap: true,
+      referrerAlreadyCountedRaw: counted,
+      referrerRemainingRaw
+    };
   }
   function quoteFailedOfflineDeliveryEconomy() {
     return {
@@ -4199,6 +4256,9 @@ var MeshSenderSDK = (() => {
   // src/solana/publicRpcFetch.ts
   var PUBLIC_RPC_READINESS = Readiness.LIVE_READ_ONLY;
   var PUBLIC_RPC_TIMEOUT_MS = 12e3;
+  var BROWSER_PREFERRED_MINT_RPC = SECONDARY_MAINNET_RPC;
+  var BROWSER_FALLBACK_MINT_RPC = DEFAULT_MAINNET_RPC;
+  var RPC_ENDPOINT_COOLDOWN_MS = 6e4;
   function publicSolscanTokenUrl(mintAddress = CPX_MAINNET_MINT_ADDRESS) {
     return `https://solscan.io/token/${mintAddress}`;
   }
@@ -4206,19 +4266,44 @@ var MeshSenderSDK = (() => {
     return `https://solscan.io/account/${address}`;
   }
   function publicPhantomTokenUrl(mintAddress = CPX_MAINNET_MINT_ADDRESS) {
-    return `https://phantom.app/tokens/solana/${mintAddress}`;
+    return `https://phantom.com/tokens/solana/${mintAddress}`;
   }
   var PUBLIC_EXPLORER_LINKS = {
     cpxMintSolscan: publicSolscanTokenUrl(CPX_MAINNET_MINT_ADDRESS),
     cpxMintPhantom: publicPhantomTokenUrl(CPX_MAINNET_MINT_ADDRESS),
     programSolscan: publicSolscanAccountUrl(MESHSENDER_PROGRAM_ID)
   };
+  var rpcCooldownUntilMs = /* @__PURE__ */ new Map();
+  function resetRpcEndpointCooldownsForTests() {
+    rpcCooldownUntilMs.clear();
+  }
+  function noteEndpointCooldown(rpcUrl, kind) {
+    if (kind === "HTTP_FORBIDDEN" || kind === "HTTP_RATE_LIMITED") {
+      rpcCooldownUntilMs.set(rpcUrl, Date.now() + RPC_ENDPOINT_COOLDOWN_MS);
+    }
+  }
+  function endpointCooldownRemainingMs(rpcUrl) {
+    const until = rpcCooldownUntilMs.get(rpcUrl) ?? 0;
+    return Math.max(0, until - Date.now());
+  }
   function classifyHttpStatus(status) {
     if (status === 403) return "HTTP_FORBIDDEN";
     if (status === 429) return "HTTP_RATE_LIMITED";
     return "HTTP_ERROR";
   }
+  function formatCpxSupplyUiFromRaw(supplyRaw) {
+    return rawToCpxDecimal(BigInt(supplyRaw));
+  }
   async function rpc(rpcUrl, method, params, timeoutMs = PUBLIC_RPC_TIMEOUT_MS) {
+    const coolMs = endpointCooldownRemainingMs(rpcUrl);
+    if (coolMs > 0) {
+      return {
+        ok: false,
+        kind: "ENDPOINT_COOLDOWN",
+        error: `ENDPOINT_COOLDOWN_${coolMs}MS`,
+        httpStatus: null
+      };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -4235,9 +4320,11 @@ var MeshSenderSDK = (() => {
         } catch {
           bodyHint = "";
         }
+        const kind = classifyHttpStatus(res.status);
+        noteEndpointCooldown(rpcUrl, kind);
         return {
           ok: false,
-          kind: classifyHttpStatus(res.status),
+          kind,
           error: `HTTP_${res.status}${bodyHint ? `:${bodyHint}` : ""}`,
           httpStatus: res.status
         };
@@ -4290,7 +4377,24 @@ var MeshSenderSDK = (() => {
       clearTimeout(timer);
     }
   }
+  function readAccountValue(result) {
+    if (result === null || typeof result !== "object" || Array.isArray(result)) {
+      return { ok: false, kind: "MALFORMED_RESPONSE", error: "ACCOUNT_RESULT_NOT_OBJECT" };
+    }
+    if (!("value" in result)) {
+      return { ok: false, kind: "MALFORMED_RESPONSE", error: "ACCOUNT_VALUE_FIELD_MISSING" };
+    }
+    const value = result.value;
+    if (value === null) {
+      return { ok: false, kind: "ACCOUNT_NOT_FOUND", error: "ACCOUNT_VALUE_NULL" };
+    }
+    if (typeof value !== "object" || Array.isArray(value)) {
+      return { ok: false, kind: "MALFORMED_RESPONSE", error: "ACCOUNT_VALUE_NOT_OBJECT" };
+    }
+    return { ok: true, value };
+  }
   async function inspectCpxMintOnRpc(rpcUrl) {
+    const inspectedAtIso = (/* @__PURE__ */ new Date()).toISOString();
     const slot = await rpc(rpcUrl, "getSlot", []);
     const acc = await rpc(rpcUrl, "getAccountInfo", [
       CPX_MAINNET_MINT_ADDRESS,
@@ -4305,25 +4409,30 @@ var MeshSenderSDK = (() => {
         failureKind: acc.kind,
         rpcUrl,
         usedFallback: false,
+        inspectedAtIso,
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
-    const value = acc.result?.value;
-    if (!value) {
+    const parsedAcc = readAccountValue(acc.result);
+    if (!parsedAcc.ok) {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
         mintAddress: CPX_MAINNET_MINT_ADDRESS,
-        error: "MINT_ACCOUNT_NOT_FOUND",
-        failureKind: "ACCOUNT_NOT_FOUND",
+        error: parsedAcc.kind === "ACCOUNT_NOT_FOUND" ? "MINT_ACCOUNT_NOT_FOUND" : parsedAcc.error,
+        failureKind: parsedAcc.kind,
         rpcUrl,
         usedFallback: false,
+        inspectedAtIso,
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
-    const owner = value.owner ?? "";
-    const parsedType = value.data?.parsed?.type ?? "unknown";
-    const info = value.data?.parsed?.info ?? {};
+    const value = parsedAcc.value;
+    const owner = typeof value.owner === "string" ? value.owner : "";
+    const data = value.data;
+    const parsed = data && typeof data === "object" && !Array.isArray(data) ? data.parsed : void 0;
+    const parsedType = typeof parsed?.type === "string" ? parsed.type : "unknown";
+    const info = parsed?.info && typeof parsed.info === "object" && !Array.isArray(parsed.info) ? parsed.info : {};
     if (owner !== SPL_TOKEN_PROGRAM_ID || parsedType !== "mint") {
       return {
         readiness: PUBLIC_RPC_READINESS,
@@ -4333,15 +4442,40 @@ var MeshSenderSDK = (() => {
         failureKind: "MALFORMED_RESPONSE",
         rpcUrl,
         usedFallback: false,
+        inspectedAtIso,
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
-    const supply = await rpc(rpcUrl, "getTokenSupply", [CPX_MAINNET_MINT_ADDRESS]);
     let decimals = null;
     let supplyRaw = null;
-    let supplyUi = "";
-    if (supply.ok) {
-      const s = supply.result.value;
+    let supplySource = "jsonParsed_mint";
+    if (typeof info.decimals === "number" && typeof info.supply === "string") {
+      try {
+        BigInt(info.supply);
+        decimals = info.decimals;
+        supplyRaw = info.supply;
+        supplySource = "jsonParsed_mint";
+      } catch {
+        decimals = null;
+        supplyRaw = null;
+      }
+    }
+    if (decimals == null || supplyRaw == null) {
+      const supply = await rpc(rpcUrl, "getTokenSupply", [CPX_MAINNET_MINT_ADDRESS]);
+      if (!supply.ok) {
+        return {
+          readiness: PUBLIC_RPC_READINESS,
+          status: "RPC_ERROR",
+          mintAddress: CPX_MAINNET_MINT_ADDRESS,
+          error: supply.error,
+          failureKind: supply.kind,
+          rpcUrl,
+          usedFallback: false,
+          inspectedAtIso,
+          explorer: PUBLIC_EXPLORER_LINKS
+        };
+      }
+      const s = supply.result?.value;
       if (!s || typeof s.decimals !== "number" || typeof s.amount !== "string") {
         return {
           readiness: PUBLIC_RPC_READINESS,
@@ -4351,42 +4485,28 @@ var MeshSenderSDK = (() => {
           failureKind: "MALFORMED_RESPONSE",
           rpcUrl,
           usedFallback: false,
+          inspectedAtIso,
+          explorer: PUBLIC_EXPLORER_LINKS
+        };
+      }
+      try {
+        BigInt(s.amount);
+      } catch {
+        return {
+          readiness: PUBLIC_RPC_READINESS,
+          status: "RPC_ERROR",
+          mintAddress: CPX_MAINNET_MINT_ADDRESS,
+          error: "MALFORMED_TOKEN_SUPPLY_RAW",
+          failureKind: "MALFORMED_RESPONSE",
+          rpcUrl,
+          usedFallback: false,
+          inspectedAtIso,
           explorer: PUBLIC_EXPLORER_LINKS
         };
       }
       decimals = s.decimals;
       supplyRaw = s.amount;
-      supplyUi = s.uiAmountString ?? "";
-    } else if (supply.kind === "HTTP_FORBIDDEN" || supply.kind === "HTTP_RATE_LIMITED" || supply.kind === "JSON_RPC_ERROR") {
-      const parsedDecimals = info.decimals;
-      const parsedSupply = info.supply;
-      if (typeof parsedDecimals === "number" && typeof parsedSupply === "string") {
-        decimals = parsedDecimals;
-        supplyRaw = parsedSupply;
-        supplyUi = "";
-      } else {
-        return {
-          readiness: PUBLIC_RPC_READINESS,
-          status: "RPC_ERROR",
-          mintAddress: CPX_MAINNET_MINT_ADDRESS,
-          error: supply.error,
-          failureKind: supply.kind,
-          rpcUrl,
-          usedFallback: false,
-          explorer: PUBLIC_EXPLORER_LINKS
-        };
-      }
-    } else {
-      return {
-        readiness: PUBLIC_RPC_READINESS,
-        status: "RPC_ERROR",
-        mintAddress: CPX_MAINNET_MINT_ADDRESS,
-        error: supply.error,
-        failureKind: supply.kind,
-        rpcUrl,
-        usedFallback: false,
-        explorer: PUBLIC_EXPLORER_LINKS
-      };
+      supplySource = "getTokenSupply";
     }
     if (decimals !== CPX_DECIMALS_EXPECTED || supplyRaw == null) {
       return {
@@ -4397,9 +4517,11 @@ var MeshSenderSDK = (() => {
         failureKind: "MALFORMED_RESPONSE",
         rpcUrl,
         usedFallback: false,
+        inspectedAtIso,
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
+    const supplyUi = formatCpxSupplyUiFromRaw(supplyRaw);
     const mintAuthorityFieldPresent = Object.prototype.hasOwnProperty.call(info, "mintAuthority");
     const freezeAuthorityFieldPresent = Object.prototype.hasOwnProperty.call(
       info,
@@ -4413,12 +4535,14 @@ var MeshSenderSDK = (() => {
       mintAddress: CPX_MAINNET_MINT_ADDRESS,
       rpcUrl,
       usedFallback: false,
-      slot: slot.ok ? slot.result : null,
+      slot: slot.ok && typeof slot.result === "number" ? slot.result : null,
+      inspectedAtIso,
       accountOwner: owner,
       parsedType,
       decimals,
       supplyRaw,
       supplyUi,
+      supplySource,
       mintAuthority,
       freezeAuthority,
       mintAuthorityFieldPresent,
@@ -4429,9 +4553,10 @@ var MeshSenderSDK = (() => {
     };
   }
   async function fetchInspectCpxMint(rpcUrl, options) {
-    const primaryUrl = rpcUrl ?? DEFAULT_MAINNET_RPC;
+    const preferBrowser = options?.preferBrowserOrder ?? rpcUrl === void 0;
+    const primaryUrl = rpcUrl ?? (preferBrowser ? BROWSER_PREFERRED_MINT_RPC : DEFAULT_MAINNET_RPC);
     const enableFallback = options?.enableFallback ?? rpcUrl === void 0;
-    const fallbackUrl = options?.fallbackRpcUrl ?? SECONDARY_MAINNET_RPC;
+    const fallbackUrl = options?.fallbackRpcUrl ?? (preferBrowser ? BROWSER_FALLBACK_MINT_RPC : SECONDARY_MAINNET_RPC);
     const primary = await inspectCpxMintOnRpc(primaryUrl);
     if (primary.status === "MINT_VERIFIED") {
       return { ...primary, usedFallback: false };
@@ -4459,6 +4584,7 @@ var MeshSenderSDK = (() => {
       failureKind: secondary.failureKind,
       rpcUrl: fallbackUrl,
       usedFallback: true,
+      inspectedAtIso: (/* @__PURE__ */ new Date()).toISOString(),
       primary: {
         rpcUrl: primary.rpcUrl,
         failureKind: primary.failureKind,
@@ -4489,28 +4615,44 @@ var MeshSenderSDK = (() => {
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
-    const value = acc.result?.value;
-    if (!value) {
+    const parsed = readAccountValue(acc.result);
+    if (!parsed.ok) {
+      if (parsed.kind === "ACCOUNT_NOT_FOUND") {
+        return {
+          readiness: PUBLIC_RPC_READINESS,
+          status: "PROGRAM_NOT_FOUND",
+          programId: MESHSENDER_PROGRAM_ID,
+          rpcUrl,
+          slot: slot.ok && typeof slot.result === "number" ? slot.result : null,
+          executable: null,
+          ownerProgram: null,
+          failureKind: "ACCOUNT_NOT_FOUND",
+          explorer: PUBLIC_EXPLORER_LINKS
+        };
+      }
       return {
         readiness: PUBLIC_RPC_READINESS,
-        status: "PROGRAM_NOT_FOUND",
+        status: "RPC_ERROR",
         programId: MESHSENDER_PROGRAM_ID,
         rpcUrl,
-        slot: slot.ok ? slot.result : null,
+        slot: null,
         executable: null,
         ownerProgram: null,
-        failureKind: "ACCOUNT_NOT_FOUND",
+        failureKind: "MALFORMED_RESPONSE",
+        error: parsed.error,
         explorer: PUBLIC_EXPLORER_LINKS
       };
     }
+    const executable = parsed.value.executable === true;
+    const ownerProgram = typeof parsed.value.owner === "string" ? parsed.value.owner : null;
     return {
       readiness: PUBLIC_RPC_READINESS,
-      status: value.executable ? "PROGRAM_EXECUTABLE" : "PROGRAM_NOT_EXECUTABLE",
+      status: executable ? "PROGRAM_EXECUTABLE" : "PROGRAM_NOT_EXECUTABLE",
       programId: MESHSENDER_PROGRAM_ID,
       rpcUrl,
-      slot: slot.ok ? slot.result : null,
-      executable: !!value.executable,
-      ownerProgram: value.owner ?? null,
+      slot: slot.ok && typeof slot.result === "number" ? slot.result : null,
+      executable,
+      ownerProgram,
       explorer: PUBLIC_EXPLORER_LINKS
     };
   }
@@ -4530,14 +4672,27 @@ var MeshSenderSDK = (() => {
       explorer: PUBLIC_EXPLORER_LINKS
     };
   }
-  async function fetchHistoricalRpcSnapshot() {
+  async function fetchHistoricalRpcSnapshot(existing) {
     const capturedAtIso = (/* @__PURE__ */ new Date()).toISOString();
-    const mint = await fetchInspectCpxMint();
-    const programDualRpc = await fetchInspectProgramDualRpc();
+    if (existing?.mint && existing?.programDualRpc) {
+      return {
+        readiness: PUBLIC_RPC_READINESS,
+        presentation: "HISTORICAL_SNAPSHOT_NOT_LIVE",
+        capturedAtIso,
+        reusedExistingResults: true,
+        mint: existing.mint,
+        programDualRpc: existing.programDualRpc,
+        writesEnabled: false,
+        explorer: PUBLIC_EXPLORER_LINKS
+      };
+    }
+    const mint = existing?.mint ?? await fetchInspectCpxMint();
+    const programDualRpc = existing?.programDualRpc ?? await fetchInspectProgramDualRpc();
     return {
       readiness: PUBLIC_RPC_READINESS,
       presentation: "HISTORICAL_SNAPSHOT_NOT_LIVE",
       capturedAtIso,
+      reusedExistingResults: !!(existing?.mint || existing?.programDualRpc),
       mint,
       programDualRpc,
       writesEnabled: false,

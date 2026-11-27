@@ -101,7 +101,11 @@ describe('U92F5 guided economic fidelity + RPC', () => {
 
     const ok = conditionalReferralSplit({
       actualPayableRaw: payable,
-      eligibility: { hasValidReferralRelationship: true, validReferredCountForReferrer: 1 },
+      eligibility: {
+        hasValidReferralRelationship: true,
+        validReferredCountForReferrer: 1,
+        alreadyCountedReferrerPeriodRaw: 0n,
+      },
     });
     assert.equal(ok.applied, true);
     if (!ok.applied) return;
@@ -114,6 +118,7 @@ describe('U92F5 guided economic fidelity + RPC', () => {
       eligibility: {
         hasValidReferralRelationship: true,
         validReferredCountForReferrer: REFERRAL_MAX_EDGES + 1,
+        alreadyCountedReferrerPeriodRaw: 0n,
       },
     });
     assert.equal(over.applied, false);
@@ -121,7 +126,11 @@ describe('U92F5 guided economic fidelity + RPC', () => {
 
     const inexact = conditionalReferralSplit({
       actualPayableRaw: 1n,
-      eligibility: { hasValidReferralRelationship: true, validReferredCountForReferrer: 1 },
+      eligibility: {
+        hasValidReferralRelationship: true,
+        validReferredCountForReferrer: 1,
+        alreadyCountedReferrerPeriodRaw: 0n,
+      },
     });
     assert.equal(inexact.applied, false);
     assert.match(String(inexact.reason), /INEXACT|REFERRAL/);
@@ -181,7 +190,7 @@ describe('U92F5 guided economic fidelity + RPC', () => {
     assert.match(app, /clearDevRouteDependent/);
     assert.equal(app.includes("getElementById('btn-offline').click()"), false);
     assert.match(PUBLIC_EXPLORER_LINKS.cpxMintSolscan, new RegExp(CPX_MAINNET_MINT_ADDRESS));
-    assert.match(PUBLIC_EXPLORER_LINKS.cpxMintPhantom, /phantom\.app/);
+    assert.match(PUBLIC_EXPLORER_LINKS.cpxMintPhantom, /phantom\.com/);
   });
 
   it('RPC primary/secondary/both-failure taxonomy (live, honest)', async () => {
