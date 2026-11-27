@@ -1,0 +1,48 @@
+{
+  "name": "@meshsender/sdk",
+  "version": "0.1.0-hackathon",
+  "description": "MeshSender Open SDK — Hackathon Flagship Edition (public-safe modules)",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "playground",
+    "examples",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "PUBLICATION_ALLOWLIST.md",
+    "FEATURE_READINESS.md",
+    "DISCLOSURE_REVIEW.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test tests/sdk.core.test.ts",
+    "demo": "node --import tsx scripts/demo.ts",
+    "compare:economy": "node --import tsx scripts/compare-economy-local.ts",
+    "playground:serve": "node scripts/serve-playground.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
