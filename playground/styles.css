@@ -115,24 +115,30 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
 }
 
 .product-video {
-  margin: 28px 0 8px;
+  margin: 28px auto 8px;
   padding: 18px 0 6px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   animation: rise 0.65s ease both;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .product-video h2 {
   margin: 0 0 8px;
   font-size: clamp(1.25rem, 3.2vw, 1.75rem);
   letter-spacing: -0.02em;
   max-width: 28ch;
+  text-align: center;
 }
 .product-video-label {
-  margin: 0 0 14px;
+  margin: 0 auto 14px;
   color: var(--muted);
   font-size: 0.92rem;
-  max-width: 62ch;
+  max-width: 42ch;
   line-height: 1.45;
+  text-align: center;
 }
 .video-frame-wrap {
   width: 100%;
@@ -140,7 +146,7 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
 }
 .video-frame-portrait {
   max-width: min(360px, 100%);
-  margin: 0 auto 0 0;
+  margin: 0 auto;
 }
 .video-aspect {
   position: relative;
@@ -150,13 +156,13 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
   border: 1px solid var(--line);
   overflow: hidden;
 }
-/* Vertical Short: 9:16 box, capped height — no crop/stretch, no tall desktop blow-up. */
+/* Vertical Short: true 9:16 — width derived so max-height never squashes the ratio. */
 .video-aspect-portrait {
   padding-top: 0;
   aspect-ratio: 9 / 16;
-  width: 100%;
+  width: min(360px, 100%, 36vh);
+  height: auto;
   max-width: min(360px, 100%);
-  max-height: min(70vh, 640px);
   margin: 0 auto;
 }
 .video-aspect iframe {
@@ -167,19 +173,22 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
   border: 0;
 }
 .video-pending {
-  margin: 0;
+  margin: 0 auto;
   padding: 28px 16px;
   border: 1px dashed var(--line);
   background: #050b14;
-  max-width: 62ch;
+  max-width: 42ch;
+  text-align: center;
 }
 .video-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 10px 14px;
-  margin: 12px 0 0;
+  margin: 12px auto 0;
   font-size: 0.92rem;
+  text-align: center;
 }
 .video-watch-link {
   display: inline-block;
@@ -195,11 +204,22 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
   margin: 0 auto 28px;
   padding: 8px 0 4px;
   animation: rise 0.55s ease both;
+  display: flex;
+  justify-content: center;
 }
 .walkthrough-details {
   border: 1px solid var(--line);
   background: var(--card);
-  padding: 10px 14px 12px;
+  padding: 10px 18px 12px;
+  width: fit-content;
+  max-width: min(100%, 42rem);
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
+  text-align: left;
+}
+.walkthrough-details[open] {
+  width: min(100%, 42rem);
 }
 .walkthrough-details > summary {
   cursor: pointer;
@@ -207,6 +227,7 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
   font-weight: 750;
   list-style: none;
   color: var(--ink);
+  text-align: center;
 }
 .walkthrough-details > summary::-webkit-details-marker { display: none; }
 .walkthrough-details > summary::before {
@@ -216,7 +237,7 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
 }
 .walkthrough-details[open] > summary::before { content: '▾ '; }
 .walkthrough-intro {
-  margin: 12px 0;
+  margin: 12px auto;
   color: var(--muted);
   max-width: 70ch;
   line-height: 1.5;
@@ -231,10 +252,15 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
 .walkthrough-list li { margin: 0 0 10px; }
 .walkthrough-list strong { color: #c8fff6; }
 @media (max-width: 640px) {
-  .product-video h2 { max-width: none; }
+  .product-video h2 { max-width: min(100%, 22ch); }
   .video-frame-portrait,
-  .video-aspect-portrait { max-width: min(100%, 320px); max-height: min(68vh, 560px); margin-left: auto; margin-right: auto; }
-  .video-actions { flex-direction: column; align-items: flex-start; }
+  .video-aspect-portrait {
+    width: min(320px, 100%, 42vh);
+    max-width: min(100%, 320px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .video-actions { flex-direction: column; align-items: center; }
 }
 
 .guided, .developer {
