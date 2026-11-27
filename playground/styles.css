@@ -119,3 +119,25 @@ footer {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+section.wide { grid-column: 1 / -1; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.net-viz {
+  min-height: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  background: #050b14;
+}
+.net-viz .node {
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.net-viz .edge { color: var(--muted); }
+.muted { color: var(--muted); }

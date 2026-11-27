@@ -1,6 +1,13 @@
 /**
  * Network Lab — deterministic offline store-carry-forward simulation.
  * SIMULATED only. No proprietary production routing algorithms.
+ *
+ * Rules:
+ * - Forwarding requires topology edge + co-presence + live (non-outaged) nodes.
+ * - Each carrier keeps its own route history from the sender.
+ * - Successful delivery hop count = edges on the recipient's route (path.length - 1).
+ * - Mobility before packet creation is ignored; expiry is enforced.
+ * - Duplicate suppression is per-node (second offer of same packetId).
  */
 
 import { Readiness } from '../readiness.js';
@@ -10,31 +17,34 @@ export const NETWORK_LAB_READINESS = Readiness.SIMULATED;
 
 export type LabNodeId = string;
 
-export type LabPacket = Readonly<{
-  packetId: string;
-  from: LabNodeId;
-  to: LabNodeId;
-  createdAtMs: number;
-  expiresAtMs: number;
-  payloadDigestHex: string;
-  hopCount: number;
-  carrierHistory: readonly LabNodeId[];
-}>;
-
 export type LabEvent =
   | Readonly<{ type: 'CREATED'; atMs: number; packetId: string }>
   | Readonly<{ type: 'CARRIED'; atMs: number; packetId: string; carrier: LabNodeId }>
-  | Readonly<{ type: 'FORWARDED'; atMs: number; packetId: string; from: LabNodeId; to: LabNodeId }>
+  | Readonly<{
+      type: 'FORWARDED';
+      atMs: number;
+      packetId: string;
+      from: LabNodeId;
+      to: LabNodeId;
+      routeAfter: readonly LabNodeId[];
+    }>
   | Readonly<{ type: 'DUPLICATE_SUPPRESSED'; atMs: number; packetId: string; at: LabNodeId }>
   | Readonly<{ type: 'EXPIRED'; atMs: number; packetId: string }>
   | Readonly<{ type: 'OUTAGE'; atMs: number; node: LabNodeId; active: boolean }>
-  | Readonly<{ type: 'DELIVERED'; atMs: number; packetId: string; via: LabNodeId; hops: number }>;
+  | Readonly<{
+      type: 'DELIVERED';
+      atMs: number;
+      packetId: string;
+      via: LabNodeId;
+      hops: number;
+      route: readonly LabNodeId[];
+    }>
+  | Readonly<{ type: 'IGNORED_MOBILITY_BEFORE_CREATE'; atMs: number }>;
 
 export type TopologyEdge = Readonly<{ a: LabNodeId; b: LabNodeId }>;
 
 export type MobilityStep = Readonly<{
   atMs: number;
-  /** Nodes that meet (in radio range) at this time. */
   meeting: readonly LabNodeId[];
 }>;
 
@@ -58,12 +68,18 @@ export type OfflineSimulationResult = Readonly<{
   readiness: typeof NETWORK_LAB_READINESS;
   delivered: boolean;
   deliveryAtMs: number | null;
+  /** Edges on successful delivery route; null if not delivered. */
   hops: number | null;
+  /** Recipient route history on success. */
+  deliveryRoute: readonly LabNodeId[] | null;
+  /** Per-carrier route from sender. */
+  carrierRoutes: Readonly<Record<string, readonly LabNodeId[]>>;
   events: readonly LabEvent[];
   finalCarriers: readonly LabNodeId[];
   duplicateSuppressions: number;
   expired: boolean;
   topologyDigestHex: string;
+  payloadDigestHex: string;
 }>;
 
 function undirectedKey(a: string, b: string): string {
@@ -79,16 +95,12 @@ function isOutaged(
   return windows.some((w) => atMs >= w.startMs && atMs < w.endMs);
 }
 
-/**
- * Deterministic SCF demo:
- * - packets move only when carriers meet
- * - duplicates suppressed per node
- * - expiry enforced
- * - no proprietary path-finding; opportunistic forwarding to any live neighbor toward recipient when co-located
- */
 export function runOfflineStoreCarryForward(
   input: OfflineSimulationInput
 ): OfflineSimulationResult {
+  if (!input.nodes.includes(input.packet.from) || !input.nodes.includes(input.packet.to)) {
+    throw new Error('PACKET_ENDPOINT_NOT_IN_NODES');
+  }
   const edgeSet = new Set(input.edges.map((e) => undirectedKey(e.a, e.b)));
   const topologyDigestHex = sha256Hex(
     JSON.stringify({
@@ -97,129 +109,134 @@ export function runOfflineStoreCarryForward(
       edges: [...edgeSet].sort(),
     })
   );
+  const payloadDigestHex = sha256Hex(input.packet.payload);
+  const expiresAtMs = input.packet.createdAtMs + input.packet.ttlMs;
 
   const events: LabEvent[] = [];
-  const seenByNode = new Map<LabNodeId, Set<string>>();
-  for (const n of input.nodes) seenByNode.set(n, new Set());
+  const carrierRoutes = new Map<LabNodeId, LabNodeId[]>();
+  carrierRoutes.set(input.packet.from, [input.packet.from]);
+  const hasPacket = new Set<LabNodeId>([input.packet.from]);
 
-  const expiresAtMs = input.packet.createdAtMs + input.packet.ttlMs;
-  let packet: LabPacket = {
-    packetId: input.packet.packetId,
-    from: input.packet.from,
-    to: input.packet.to,
-    createdAtMs: input.packet.createdAtMs,
-    expiresAtMs,
-    payloadDigestHex: sha256Hex(input.packet.payload),
-    hopCount: 0,
-    carrierHistory: [input.packet.from],
-  };
-
-  let carriers = new Set<LabNodeId>([input.packet.from]);
-  seenByNode.get(input.packet.from)!.add(packet.packetId);
-  events.push({ type: 'CREATED', atMs: input.packet.createdAtMs, packetId: packet.packetId });
+  events.push({ type: 'CREATED', atMs: input.packet.createdAtMs, packetId: input.packet.packetId });
 
   let delivered = false;
   let deliveryAtMs: number | null = null;
+  let deliveryRoute: LabNodeId[] | null = null;
+  let hops: number | null = null;
   let duplicateSuppressions = 0;
   let expired = false;
 
   const mobility = [...input.mobility].sort((a, b) => a.atMs - b.atMs);
 
   for (const step of mobility) {
-    if (delivered) break;
+    if (delivered || expired) break;
+
+    if (step.atMs < input.packet.createdAtMs) {
+      events.push({ type: 'IGNORED_MOBILITY_BEFORE_CREATE', atMs: step.atMs });
+      continue;
+    }
+
     if (step.atMs >= expiresAtMs) {
       expired = true;
-      events.push({ type: 'EXPIRED', atMs: expiresAtMs, packetId: packet.packetId });
+      events.push({ type: 'EXPIRED', atMs: expiresAtMs, packetId: input.packet.packetId });
       break;
     }
 
-    const liveMeeting = step.meeting.filter(
-      (n) => input.nodes.includes(n) && !isOutaged(n, step.atMs, input.outages)
-    );
     for (const n of input.nodes) {
       if (isOutaged(n, step.atMs, input.outages)) {
         events.push({ type: 'OUTAGE', atMs: step.atMs, node: n, active: true });
       }
     }
 
-    const carriersHere = liveMeeting.filter((n) => carriers.has(n));
+    const liveMeeting = step.meeting.filter(
+      (n) => input.nodes.includes(n) && !isOutaged(n, step.atMs, input.outages)
+    );
+    const carriersHere = liveMeeting.filter((n) => hasPacket.has(n));
     if (carriersHere.length === 0) continue;
 
     for (const carrier of carriersHere) {
-      events.push({ type: 'CARRIED', atMs: step.atMs, packetId: packet.packetId, carrier });
+      events.push({
+        type: 'CARRIED',
+        atMs: step.atMs,
+        packetId: input.packet.packetId,
+        carrier,
+      });
     }
 
-    // Opportunistic: any live meeting peer can receive a copy if connected by topology edge to a carrier.
-    for (const peer of liveMeeting) {
-      if (carriers.has(peer)) continue;
-      const canReceive = carriersHere.some((c) => edgeSet.has(undirectedKey(c, peer)));
-      if (!canReceive && !carriersHere.includes(peer)) continue;
-      // Co-location alone (meeting) models radio contact for demo topology.
-      const contactOk =
-        canReceive ||
-        carriersHere.some((c) => liveMeeting.includes(c) && liveMeeting.includes(peer));
-      if (!contactOk) continue;
+    // Deterministic peer order for reproducibility.
+    const peers = [...liveMeeting].sort();
+    for (const peer of peers) {
+      if (delivered) break;
+      const donors = carriersHere
+        .filter((c) => c !== peer && edgeSet.has(undirectedKey(c, peer)))
+        .sort();
+      if (donors.length === 0) continue;
 
-      const seen = seenByNode.get(peer)!;
-      if (seen.has(packet.packetId)) {
+      if (hasPacket.has(peer)) {
         duplicateSuppressions += 1;
         events.push({
           type: 'DUPLICATE_SUPPRESSED',
           atMs: step.atMs,
-          packetId: packet.packetId,
+          packetId: input.packet.packetId,
           at: peer,
         });
         continue;
       }
-      seen.add(packet.packetId);
-      const fromCarrier = carriersHere[0]!;
-      carriers.add(peer);
-      packet = {
-        ...packet,
-        hopCount: packet.hopCount + 1,
-        carrierHistory: [...packet.carrierHistory, peer],
-      };
+
+      const fromCarrier = donors[0]!;
+      const parentRoute = carrierRoutes.get(fromCarrier)!;
+      const routeAfter = [...parentRoute, peer];
+      carrierRoutes.set(peer, routeAfter);
+      hasPacket.add(peer);
       events.push({
         type: 'FORWARDED',
         atMs: step.atMs,
-        packetId: packet.packetId,
+        packetId: input.packet.packetId,
         from: fromCarrier,
         to: peer,
+        routeAfter,
       });
 
-      if (peer === packet.to) {
+      if (peer === input.packet.to) {
         delivered = true;
         deliveryAtMs = step.atMs;
+        deliveryRoute = routeAfter;
+        hops = routeAfter.length - 1;
         events.push({
           type: 'DELIVERED',
           atMs: step.atMs,
-          packetId: packet.packetId,
+          packetId: input.packet.packetId,
           via: peer,
-          hops: packet.hopCount,
+          hops,
+          route: routeAfter,
         });
-        break;
       }
     }
   }
 
   if (!delivered && !expired) {
-    // End of mobility without delivery — check expiry vs last time.
     const last = mobility[mobility.length - 1]?.atMs ?? input.packet.createdAtMs;
     if (last >= expiresAtMs) {
       expired = true;
-      events.push({ type: 'EXPIRED', atMs: expiresAtMs, packetId: packet.packetId });
+      events.push({ type: 'EXPIRED', atMs: expiresAtMs, packetId: input.packet.packetId });
     }
   }
+
+  const carrierRoutesObj: Record<string, readonly LabNodeId[]> = {};
+  for (const [k, v] of carrierRoutes) carrierRoutesObj[k] = v;
 
   return {
     readiness: NETWORK_LAB_READINESS,
     delivered,
     deliveryAtMs,
-    hops: delivered ? packet.hopCount : null,
+    hops,
+    deliveryRoute,
+    carrierRoutes: carrierRoutesObj,
     events,
-    finalCarriers: [...carriers],
+    finalCarriers: [...hasPacket],
     duplicateSuppressions,
     expired,
     topologyDigestHex,
+    payloadDigestHex,
   };
 }

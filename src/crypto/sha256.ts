@@ -1,8 +1,12 @@
-import { createHash } from 'node:crypto';
+/**
+ * Portable SHA-256 (Node + browser bundle). No Node-only imports.
+ */
+import { sha256 } from '@noble/hashes/sha2';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
 
 export function sha256Hex(data: Uint8Array | string): string {
-  const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : Buffer.from(data);
-  return createHash('sha256').update(buf).digest('hex');
+  const bytes = typeof data === 'string' ? utf8ToBytes(data) : data;
+  return bytesToHex(sha256(bytes));
 }
 
 export function isSha256Hex(value: unknown): value is string {
@@ -10,5 +14,5 @@ export function isSha256Hex(value: unknown): value is string {
 }
 
 export function utf8Bytes(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
+  return utf8ToBytes(text);
 }

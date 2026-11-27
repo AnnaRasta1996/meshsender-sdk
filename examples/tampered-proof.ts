@@ -1,27 +1,37 @@
 import {
-  createDemoDeliveryProof,
+  runSimulatedDeliveryPipeline,
   verifyDemoDeliveryProof,
   tamperDemoDeliveryProof,
-  digestPayload,
   generateDemoKeyPair,
 } from '../src/index.ts';
 
-const signer = generateDemoKeyPair();
-const proof = createDemoDeliveryProof({
-  claims: {
-    messageId: 'tamper-demo',
-    fromNodeId: 'A',
-    toNodeId: 'B',
-    deliveredAtMs: 1,
-    hops: 1,
-    ingressTransport: 'lora',
-    payloadDigestHex: digestPayload('payload'),
+const pipe = runSimulatedDeliveryPipeline({
+  simulationInput: {
+    seed: 'tamper',
+    nodes: ['A', 'R', 'B'],
+    edges: [
+      { a: 'A', b: 'R' },
+      { a: 'R', b: 'B' },
+    ],
+    mobility: [
+      { atMs: 1, meeting: ['A', 'R'] },
+      { atMs: 2, meeting: ['R', 'B'] },
+    ],
+    packet: {
+      packetId: 't1',
+      from: 'A',
+      to: 'B',
+      createdAtMs: 0,
+      ttlMs: 100,
+      payload: 'p',
+    },
   },
-  signer,
 });
-
-const bad = tamperDemoDeliveryProof(proof, { payloadDigestHex: digestPayload('evil') });
+if (!pipe.ok) throw new Error('need delivery');
+const bad = tamperDemoDeliveryProof(pipe.proof, { payloadDigestHex: 'ab'.repeat(32) });
 console.log({
-  valid: verifyDemoDeliveryProof(proof).ok,
-  tamperedRejected: verifyDemoDeliveryProof(bad).ok === false,
+  valid: verifyDemoDeliveryProof(pipe.proof, pipe.recipientSigner.publicKeyB64).ok,
+  tamperedRejected: verifyDemoDeliveryProof(bad, pipe.recipientSigner.publicKeyB64).ok === false,
+  wrongSignerRejected:
+    verifyDemoDeliveryProof(pipe.proof, generateDemoKeyPair().publicKeyB64).ok === false,
 });

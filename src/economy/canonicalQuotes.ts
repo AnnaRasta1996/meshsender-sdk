@@ -268,25 +268,72 @@ export type EconomyQuoteBundle = Readonly<{
   settlementExecution: 'BLOCKED_NOT_IN_OPEN_SDK';
 }>;
 
+/**
+ * Apply remaining node + global budget to simulated payable rewards.
+ * Never exceeds caps. Referral split validates against the actual simulated payable.
+ */
+export function simulatePayableRelayReward(input: {
+  nominalRewardRaw: bigint;
+  alreadyCountedNodePeriodRaw: bigint;
+  globalRemainingRaw: bigint;
+}): {
+  ok: true;
+  nodeLimitedRaw: bigint;
+  actualPayableRaw: bigint;
+  neverExceedsCaps: true;
+} {
+  const capped = nodeCapLimitedNominalRaw({
+    nominalRewardRaw: input.nominalRewardRaw,
+    alreadyCountedNodePeriodRaw: input.alreadyCountedNodePeriodRaw,
+  });
+  assertNonNegative(input.globalRemainingRaw, 'globalRemainingRaw');
+  const actual =
+    capped.nodeCapLimitedNominalRaw < input.globalRemainingRaw
+      ? capped.nodeCapLimitedNominalRaw
+      : input.globalRemainingRaw;
+  if (actual > capped.nodeCapLimitedNominalRaw || actual > input.globalRemainingRaw) {
+    throw new Error('ECONOMY_CAP_EXCEEDED');
+  }
+  return {
+    ok: true,
+    nodeLimitedRaw: capped.nodeCapLimitedNominalRaw,
+    actualPayableRaw: actual,
+    neverExceedsCaps: true,
+  };
+}
+
 export function quoteDeliveryEconomy(input: {
   cpxEurPriceDecimal: string;
   alreadyCountedNodePeriodRaw?: bigint;
   rewardReserveRawAtPeriodStart?: bigint;
-  actualPayableRawForReferralDemo?: bigint;
-}): EconomyQuoteBundle {
+  globalAlreadyPaidRaw?: bigint;
+  /** Must equal simulated actual payable when provided; otherwise derived. */
+  actualPayableRawForReferral?: bigint;
+}): EconomyQuoteBundle & {
+  actualPayableRaw: bigint;
+  globalRemainingRaw: bigint;
+} {
   const burn = offlineServiceBurnCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
   const nominal = nominalRelayRewardCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
-  const capped = nodeCapLimitedNominalRaw({
-    nominalRewardRaw: nominal.nominalRewardCpxRaw,
-    alreadyCountedNodePeriodRaw: input.alreadyCountedNodePeriodRaw ?? 0n,
-  });
   const reserve = input.rewardReserveRawAtPeriodStart ?? 1_500_000_000_000n * CPX_RAW_SCALE;
   const pool = globalPeriodPoolHardCapRaw(reserve);
+  const globalAlready = input.globalAlreadyPaidRaw ?? 0n;
+  assertNonNegative(globalAlready, 'globalAlreadyPaidRaw');
+  const globalRemainingRaw = pool > globalAlready ? pool - globalAlready : 0n;
+  const payable = simulatePayableRelayReward({
+    nominalRewardRaw: nominal.nominalRewardCpxRaw,
+    alreadyCountedNodePeriodRaw: input.alreadyCountedNodePeriodRaw ?? 0n,
+    globalRemainingRaw,
+  });
+  if (
+    input.actualPayableRawForReferral !== undefined &&
+    input.actualPayableRawForReferral !== payable.actualPayableRaw
+  ) {
+    throw new Error('REFERRAL_INPUT_MUST_MATCH_SIMULATED_PAYABLE');
+  }
   let referral: EconomyQuoteBundle['referral'];
   try {
-    const actual =
-      input.actualPayableRawForReferralDemo ?? capped.nodeCapLimitedNominalRaw;
-    referral = referralSplitRawExactOrFail(actual);
+    referral = referralSplitRawExactOrFail(payable.actualPayableRaw);
   } catch (e) {
     referral = { blocked: e instanceof Error ? e.message : String(e) };
   }
@@ -297,8 +344,10 @@ export function quoteDeliveryEconomy(input: {
     offlineBurnCpx: rawToCpxDecimal(burn.serviceBurnCpxRaw),
     nominalRelayRaw: nominal.nominalRewardCpxRaw,
     nominalRelayCpx: rawToCpxDecimal(nominal.nominalRewardCpxRaw),
-    nodeLimitedRaw: capped.nodeCapLimitedNominalRaw,
+    nodeLimitedRaw: payable.nodeLimitedRaw,
+    actualPayableRaw: payable.actualPayableRaw,
     globalPoolHardCapRaw: pool,
+    globalRemainingRaw,
     referral,
     first5000: first5000Allocation(),
     platformFee: PLATFORM_FEE,

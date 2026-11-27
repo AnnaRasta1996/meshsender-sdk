@@ -1,0 +1,32 @@
+# Allowlisted static Pages workflow — DO NOT enable GitHub Pages until owner approval.
+# Artifact: playground/ (includes generated meshsender-sdk.bundle.js after build:browser).
+name: pages-prepare-blocked
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build:browser
+      - name: Upload playground artifact only
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playground
+  # deploy job intentionally omitted / not auto-enabled.
+  # Owner must explicitly approve public Pages enablement after independent review.

@@ -1,39 +1,28 @@
 # Publication allowlist (exact)
 
-Only these paths are candidates for a future public `meshsender-sdk` repository.
-Owner must approve this list + MIT before any public publish.
+Owner must approve this list + MIT before any **public** open.
 
 ## Allowed
 
-- `package.json`
-- `package-lock.json` (after install)
-- `tsconfig.json`
-- `LICENSE`
-- `README.md`
-- `FEATURE_READINESS.md`
-- `DISCLOSURE_REVIEW.md`
-- `PUBLICATION_ALLOWLIST.md`
-- `docs/API.md`
-- `docs/ARCHITECTURE.md`
+- `package.json`, `package-lock.json`, `tsconfig.json`
+- `LICENSE`, `README.md`, `FEATURE_READINESS.md`, `DISCLOSURE_REVIEW.md`, `PUBLICATION_ALLOWLIST.md`
+- `docs/**`
 - `src/**/*.ts`
 - `tests/**/*.ts`
 - `examples/**/*.ts`
-- `playground/**/*`
-- `scripts/demo.ts`
-- `scripts/serve-playground.mjs`
+- `playground/**` including generated `meshsender-sdk.bundle.js`
+- `scripts/demo.ts`, `scripts/serve-playground.mjs`, `scripts/build-browser.mjs`, `scripts/playground-interact.ts`
+- `.github/workflows/pages.yml` (prepare-only; Pages not enabled)
 - `.gitignore`
 
-## Forbidden (never publish)
+## Forbidden
 
-- Any path under `smc-baseline-review-*` / `secure-mesh-chat`
-- `scripts/compare-economy-local.ts` (private cross-check helper)
-- Private wallet labels/addresses, credentials, `.env*`
-- Native Android/iOS/Rust sources
-- Production auth, proprietary routing, anti-fraud internals, settlement engines
+- Private product repos / history (`secure-mesh-chat`, `smc-baseline-*`)
+- Credentials, `.env*`, private wallet labels/addresses
+- Native sources, proprietary routing/auth/anti-fraud/settlement engines
 - Internal Master Guide / FOLDER OF THRUTH documents
-- Source maps that embed private code
-- Private git history / objects from the product repo
-- Infrastructure endpoints beyond public Solana RPC + public mint/program IDs
+- Source maps embedding private code
+- Any `compare-economy-local` private helper
 
 ## Public identifiers allowed
 

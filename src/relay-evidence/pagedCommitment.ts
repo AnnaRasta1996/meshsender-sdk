@@ -1,11 +1,10 @@
 /**
  * Relay Evidence — ILLUSTRATIVE paged evidence + rolling SHA-256 commitments.
- * Demonstrates individual contribution verification and large-N folding.
- * Private anti-fraud internals are NOT included.
+ * Verification requires independently supplied expected signer identities per hop.
  */
 
 import { Readiness } from '../readiness.js';
-import { isSha256Hex, sha256Hex } from '../crypto/sha256.js';
+import { isSha256Hex, sha256Hex, utf8Bytes } from '../crypto/sha256.js';
 import {
   decodePublicKeyB64,
   signUtf8Detached,
@@ -43,11 +42,19 @@ export type DemoRelayEvidenceBundle = Readonly<{
   readiness: typeof RELAY_EVIDENCE_READINESS;
   disclosure: 'ILLUSTRATIVE_SDK_DEMO_PROTOCOL';
   messageId: string;
+  intentDigestHex: string;
+  nonceB64: string;
+  senderDigestHex: string;
+  recipientDigestHex: string;
   routeSeedHex: string;
   rootCommitmentHex: string;
   pages: readonly DemoRelayPage[];
   verifiedHopCount: number;
 }>;
+
+function utf8ByteLength(value: string): number {
+  return utf8Bytes(value).length;
+}
 
 function hopAttestationMessage(input: {
   messageId: string;
@@ -56,15 +63,15 @@ function hopAttestationMessage(input: {
 }): string {
   return [
     SDK_DEMO_RELAY_LEAF_DOMAIN,
-    input.messageId,
-    String(input.hop.absoluteRelayIndex),
-    input.hop.relayNodeId,
-    input.hop.previousNodeId,
-    String(input.hop.forwardedAtMs),
-    input.hop.ingressTransport,
-    input.signerPublicKeyB64,
-    input.hop.rewardRawDecimal,
-  ].join('|');
+    `messageId=${input.messageId.trim()}`,
+    `absoluteRelayIndex=${input.hop.absoluteRelayIndex}`,
+    `relayNodeId=${input.hop.relayNodeId.trim()}`,
+    `previousNodeId=${input.hop.previousNodeId.trim()}`,
+    `forwardedAtMs=${input.hop.forwardedAtMs}`,
+    `ingressTransport=${input.hop.ingressTransport}`,
+    `signerPublicKeyB64=${input.signerPublicKeyB64.trim()}`,
+    `rewardRawDecimal=${input.hop.rewardRawDecimal.trim()}`,
+  ].join('\n');
 }
 
 export function computeRouteSeedHex(input: {
@@ -77,11 +84,11 @@ export function computeRouteSeedHex(input: {
   return sha256Hex(
     [
       SDK_DEMO_RELAY_ROUTE_SEED_DOMAIN,
-      input.messageId.trim(),
-      input.intentDigestHex.trim().toLowerCase(),
-      input.nonceB64.trim(),
-      input.senderDigestHex.trim().toLowerCase(),
-      input.recipientDigestHex.trim().toLowerCase(),
+      `messageId=${input.messageId.trim()}`,
+      `intentDigestHex=${input.intentDigestHex.trim().toLowerCase()}`,
+      `nonceB64=${input.nonceB64.trim()}`,
+      `senderDigestHex=${input.senderDigestHex.trim().toLowerCase()}`,
+      `recipientDigestHex=${input.recipientDigestHex.trim().toLowerCase()}`,
     ].join('\n')
   );
 }
@@ -90,15 +97,15 @@ export function computeLeafHex(hop: DemoRelayHop, messageId: string): string {
   return sha256Hex(
     [
       SDK_DEMO_RELAY_LEAF_DOMAIN,
-      messageId,
-      String(hop.absoluteRelayIndex),
-      hop.relayNodeId,
-      hop.previousNodeId,
-      String(hop.forwardedAtMs),
-      hop.ingressTransport,
-      hop.signerPublicKeyB64,
-      hop.signatureB64,
-      hop.rewardRawDecimal,
+      `messageId=${messageId}`,
+      `absoluteRelayIndex=${hop.absoluteRelayIndex}`,
+      `relayNodeId=${hop.relayNodeId}`,
+      `previousNodeId=${hop.previousNodeId}`,
+      `forwardedAtMs=${hop.forwardedAtMs}`,
+      `ingressTransport=${hop.ingressTransport}`,
+      `signerPublicKeyB64=${hop.signerPublicKeyB64}`,
+      `signatureB64=${hop.signatureB64}`,
+      `rewardRawDecimal=${hop.rewardRawDecimal}`,
     ].join('\n')
   );
 }
@@ -115,6 +122,9 @@ export function signDemoRelayHop(input: {
   hop: Omit<DemoRelayHop, 'signatureB64' | 'signerPublicKeyB64'>;
   signer: DemoKeyPair;
 }): DemoRelayHop {
+  if (!Number.isSafeInteger(input.hop.absoluteRelayIndex) || input.hop.absoluteRelayIndex < 0) {
+    throw new Error('RELAY_INDEX_INVALID');
+  }
   const msg = hopAttestationMessage({
     messageId: input.messageId,
     hop: input.hop,
@@ -127,23 +137,29 @@ export function signDemoRelayHop(input: {
   };
 }
 
-export function verifyDemoRelayHop(messageId: string, hop: DemoRelayHop): boolean {
+export function verifyDemoRelayHop(
+  messageId: string,
+  hop: DemoRelayHop,
+  expectedSignerPublicKeyB64: string
+): { ok: boolean; reason?: string } {
+  const expected = expectedSignerPublicKeyB64.trim();
+  if (!expected) return { ok: false, reason: 'EXPECTED_SIGNER_REQUIRED' };
+  if (hop.signerPublicKeyB64.trim() !== expected) return { ok: false, reason: 'WRONG_SIGNER' };
   try {
-    const pk = decodePublicKeyB64(hop.signerPublicKeyB64);
+    const pk = decodePublicKeyB64(expected);
     const msg = hopAttestationMessage({
       messageId,
       hop,
       signerPublicKeyB64: hop.signerPublicKeyB64,
     });
-    return verifyUtf8Detached(msg, hop.signatureB64, pk);
+    return verifyUtf8Detached(msg, hop.signatureB64, pk)
+      ? { ok: true }
+      : { ok: false, reason: 'SIGNATURE_INVALID' };
   } catch {
-    return false;
+    return { ok: false, reason: 'VERIFY_EXCEPTION' };
   }
 }
 
-/**
- * Page by serialized byte budget (technical), never by an economic hop cap.
- */
 export function buildPagedRelayEvidence(input: {
   messageId: string;
   intentDigestHex: string;
@@ -151,27 +167,33 @@ export function buildPagedRelayEvidence(input: {
   senderDigestHex: string;
   recipientDigestHex: string;
   hops: readonly DemoRelayHop[];
+  expectedSignerPublicKeysB64: readonly string[];
   maxPageBodyBytes?: number;
 }): DemoRelayEvidenceBundle {
-  const maxPageBodyBytes = input.maxPageBodyBytes ?? 28 * 1024;
-  for (const hop of input.hops) {
-    if (!verifyDemoRelayHop(input.messageId, hop)) {
-      throw new Error(`RELAY_HOP_SIGNATURE_INVALID:${hop.absoluteRelayIndex}`);
-    }
+  if (input.expectedSignerPublicKeysB64.length !== input.hops.length) {
+    throw new Error('EXPECTED_SIGNERS_LENGTH_MISMATCH');
+  }
+  for (let i = 0; i < input.hops.length; i++) {
+    const hop = input.hops[i]!;
+    const v = verifyDemoRelayHop(
+      input.messageId,
+      hop,
+      input.expectedSignerPublicKeysB64[i]!
+    );
+    if (!v.ok) throw new Error(`RELAY_HOP_INVALID:${i}:${v.reason}`);
   }
 
   const routeSeedHex = computeRouteSeedHex(input);
+  const maxPageBodyBytes = input.maxPageBodyBytes ?? 28 * 1024;
   const pages: DemoRelayPage[] = [];
   let cursor = 0;
   let incoming = routeSeedHex;
   let pageIndex = 0;
-  let verifiedHopCount = 0;
 
   while (cursor < input.hops.length) {
-    let end = cursor;
     let trialOutgoing = incoming;
     let acceptedEnd = cursor;
-
+    let end = cursor;
     while (end < input.hops.length) {
       const slice = input.hops.slice(cursor, end + 1);
       let rolling = incoming;
@@ -186,7 +208,7 @@ export function buildPagedRelayEvidence(input: {
         isFinalPage: end === input.hops.length - 1,
         hops: slice,
       };
-      const bytes = Buffer.byteLength(JSON.stringify(trialPage), 'utf8');
+      const bytes = utf8ByteLength(JSON.stringify(trialPage));
       if (bytes > maxPageBodyBytes && slice.length > 1) break;
       if (bytes > maxPageBodyBytes && slice.length === 1) {
         throw new Error('SINGLE_HOP_EXCEEDS_PAGE_BUDGET');
@@ -194,9 +216,7 @@ export function buildPagedRelayEvidence(input: {
       trialOutgoing = rolling;
       acceptedEnd = end + 1;
       end += 1;
-      if (bytes > maxPageBodyBytes) break;
     }
-
     const hops = input.hops.slice(cursor, acceptedEnd);
     pages.push({
       pageIndex,
@@ -206,7 +226,6 @@ export function buildPagedRelayEvidence(input: {
       isFinalPage: acceptedEnd === input.hops.length,
       hops,
     });
-    verifiedHopCount += hops.length;
     incoming = trialOutgoing;
     cursor = acceptedEnd;
     pageIndex += 1;
@@ -216,9 +235,134 @@ export function buildPagedRelayEvidence(input: {
     readiness: RELAY_EVIDENCE_READINESS,
     disclosure: 'ILLUSTRATIVE_SDK_DEMO_PROTOCOL',
     messageId: input.messageId,
+    intentDigestHex: input.intentDigestHex.trim().toLowerCase(),
+    nonceB64: input.nonceB64.trim(),
+    senderDigestHex: input.senderDigestHex.trim().toLowerCase(),
+    recipientDigestHex: input.recipientDigestHex.trim().toLowerCase(),
     routeSeedHex,
     rootCommitmentHex: incoming,
     pages,
-    verifiedHopCount,
+    verifiedHopCount: input.hops.length,
   };
+}
+
+/**
+ * Complete synthetic paged-evidence verifier.
+ */
+export function verifyPagedRelayEvidence(input: {
+  bundle: DemoRelayEvidenceBundle;
+  expectedSignerPublicKeysB64: readonly string[];
+  expectedRootCommitmentHex: string;
+}): { ok: boolean; reason?: string; readiness: typeof RELAY_EVIDENCE_READINESS } {
+  const b = input.bundle;
+  if (b.disclosure !== 'ILLUSTRATIVE_SDK_DEMO_PROTOCOL') {
+    return { ok: false, reason: 'DISCLOSURE_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+  const flat = b.pages.flatMap((p) => p.hops);
+  if (flat.length !== input.expectedSignerPublicKeysB64.length) {
+    return { ok: false, reason: 'SIGNER_COUNT_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+  if (flat.length !== b.verifiedHopCount) {
+    return { ok: false, reason: 'HOP_COUNT_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+
+  // Ordered indices + route continuity
+  for (let i = 0; i < flat.length; i++) {
+    const hop = flat[i]!;
+    if (hop.absoluteRelayIndex !== i) {
+      return { ok: false, reason: `INDEX_GAP:${i}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    if (i === 0) {
+      // first hop previous may be sender node id — checked by caller continuity if needed
+    } else if (hop.previousNodeId !== flat[i - 1]!.relayNodeId) {
+      return { ok: false, reason: `ROUTE_CONTINUITY:${i}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    const sig = verifyDemoRelayHop(b.messageId, hop, input.expectedSignerPublicKeysB64[i]!);
+    if (!sig.ok) {
+      return {
+        ok: false,
+        reason: `HOP_SIG:${i}:${sig.reason}`,
+        readiness: RELAY_EVIDENCE_READINESS,
+      };
+    }
+  }
+
+  // Page boundaries
+  let expectedIncoming = computeRouteSeedHex(b);
+  if (expectedIncoming !== b.routeSeedHex) {
+    return { ok: false, reason: 'ROUTE_SEED_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+  for (let p = 0; p < b.pages.length; p++) {
+    const page = b.pages[p]!;
+    if (page.pageIndex !== p) {
+      return { ok: false, reason: `PAGE_INDEX:${p}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    if (page.incomingCommitmentHex !== expectedIncoming) {
+      return { ok: false, reason: `PAGE_INCOMING:${p}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    if (page.firstAbsoluteRelayIndex !== page.hops[0]?.absoluteRelayIndex) {
+      return { ok: false, reason: `PAGE_FIRST_INDEX:${p}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    let rolling = page.incomingCommitmentHex;
+    for (const hop of page.hops) {
+      rolling = foldCommitment(rolling, computeLeafHex(hop, b.messageId));
+    }
+    if (rolling !== page.outgoingCommitmentHex) {
+      return { ok: false, reason: `PAGE_OUTGOING:${p}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    const isLast = p === b.pages.length - 1;
+    if (page.isFinalPage !== isLast) {
+      return { ok: false, reason: `PAGE_FINAL_FLAG:${p}`, readiness: RELAY_EVIDENCE_READINESS };
+    }
+    expectedIncoming = rolling;
+  }
+
+  if (b.rootCommitmentHex !== expectedIncoming) {
+    return { ok: false, reason: 'ROOT_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+  if (b.rootCommitmentHex !== input.expectedRootCommitmentHex.trim().toLowerCase()) {
+    return { ok: false, reason: 'EXPECTED_ROOT_MISMATCH', readiness: RELAY_EVIDENCE_READINESS };
+  }
+  return { ok: true, readiness: RELAY_EVIDENCE_READINESS };
+}
+
+/** Build relay hops strictly from a successful delivery route (intermediate relays). */
+export function buildRelayHopsFromDeliveryRoute(input: {
+  messageId: string;
+  deliveryRoute: readonly string[];
+  hopSigners: readonly DemoKeyPair[];
+  forwardedAtMsByHop: readonly number[];
+  ingressTransport?: string;
+  rewardRawDecimal: string;
+}): { hops: DemoRelayHop[]; expectedSignerPublicKeysB64: string[] } {
+  // Route: [sender, relay..., recipient]. Relays are intermediates only.
+  if (input.deliveryRoute.length < 3) {
+    throw new Error('DELIVERY_ROUTE_NEEDS_INTERMEDIATE_RELAY');
+  }
+  const relays = input.deliveryRoute.slice(1, -1);
+  if (relays.length !== input.hopSigners.length) {
+    throw new Error('HOP_SIGNER_COUNT_MISMATCH');
+  }
+  if (relays.length !== input.forwardedAtMsByHop.length) {
+    throw new Error('HOP_TIME_COUNT_MISMATCH');
+  }
+  const hops: DemoRelayHop[] = [];
+  const expectedSignerPublicKeysB64: string[] = [];
+  for (let i = 0; i < relays.length; i++) {
+    const hop = signDemoRelayHop({
+      messageId: input.messageId,
+      signer: input.hopSigners[i]!,
+      hop: {
+        absoluteRelayIndex: i,
+        relayNodeId: relays[i]!,
+        previousNodeId: input.deliveryRoute[i]!,
+        forwardedAtMs: input.forwardedAtMsByHop[i]!,
+        ingressTransport: input.ingressTransport ?? 'ble',
+        rewardRawDecimal: input.rewardRawDecimal,
+      },
+    });
+    hops.push(hop);
+    expectedSignerPublicKeysB64.push(input.hopSigners[i]!.publicKeyB64);
+  }
+  return { hops, expectedSignerPublicKeysB64 };
 }

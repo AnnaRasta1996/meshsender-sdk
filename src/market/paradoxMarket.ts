@@ -1,7 +1,5 @@
 /**
- * Paradox Market — public agreement models + synthetic bilateral verification
- * + direct-payment simulations. No custodial escrow. Unfinished marketplace UX
- * is NOT claimed operational.
+ * Paradox Market — synthetic bilateral verification + direct-payment simulations.
  */
 
 import { Readiness } from '../readiness.js';
@@ -12,7 +10,7 @@ import {
   verifyUtf8Detached,
   type DemoKeyPair,
 } from '../crypto/ed25519.js';
-import { sha256Hex } from '../crypto/sha256.js';
+import { isSha256Hex, sha256Hex } from '../crypto/sha256.js';
 import {
   ECONOMY_READINESS,
   marketBurnRawExactOrFail,
@@ -20,6 +18,7 @@ import {
   rationalCpxToRawDg2,
   rawToCpxDecimal,
   PLATFORM_FEE,
+  CPX_DECIMALS,
 } from '../economy/canonicalQuotes.js';
 
 export const MARKET_READINESS = Readiness.SIMULATED;
@@ -68,18 +67,18 @@ export type MarketPaymentQuote = Readonly<{
 }>;
 
 function canonicalAgreementJson(draft: MarketAgreementDraft): string {
-  return JSON.stringify({
-    domain: SDK_DEMO_AGREEMENT_DOMAIN,
-    agreementId: draft.agreementId,
-    category: draft.category,
-    title: draft.title,
-    principalCpxDecimal: draft.principalCpxDecimal,
-    buyerNodeId: draft.buyerNodeId,
-    sellerNodeId: draft.sellerNodeId,
-    createdAtMs: draft.createdAtMs,
-    rentRemainsEur: draft.rentRemainsEur ?? null,
-    notes: draft.notes ?? null,
-  });
+  return [
+    SDK_DEMO_AGREEMENT_DOMAIN,
+    `agreementId=${draft.agreementId.trim()}`,
+    `category=${draft.category}`,
+    `title=${draft.title.trim()}`,
+    `principalCpxDecimal=${draft.principalCpxDecimal.trim()}`,
+    `buyerNodeId=${draft.buyerNodeId.trim()}`,
+    `sellerNodeId=${draft.sellerNodeId.trim()}`,
+    `createdAtMs=${draft.createdAtMs}`,
+    `rentRemainsEur=${draft.rentRemainsEur === true ? 'true' : 'false'}`,
+    `notes=${(draft.notes ?? '').trim()}`,
+  ].join('\n');
 }
 
 export function hashMarketAgreement(draft: MarketAgreementDraft): MarketAgreementHash {
@@ -87,29 +86,49 @@ export function hashMarketAgreement(draft: MarketAgreementDraft): MarketAgreemen
   return { agreementHashHex: sha256Hex(canonicalJson), canonicalJson };
 }
 
-export function signAgreementHash(
-  agreementHashHex: string,
-  signer: DemoKeyPair
-): string {
-  const msg = `${SDK_DEMO_AGREEMENT_DOMAIN}|${agreementHashHex}`;
+export function signAgreementHash(agreementHashHex: string, signer: DemoKeyPair): string {
+  if (!isSha256Hex(agreementHashHex.trim().toLowerCase())) {
+    throw new Error('AGREEMENT_HASH_INVALID');
+  }
+  const msg = `${SDK_DEMO_AGREEMENT_DOMAIN}|hash=${agreementHashHex.trim().toLowerCase()}`;
   return signUtf8Detached(msg, signer.secretKey);
 }
 
 export function verifyBilateralAgreement(input: {
   agreementHashHex: string;
   signatures: BilateralSignatures;
+  expectedBuyerPublicKeyB64: string;
+  expectedSellerPublicKeyB64: string;
 }): { ok: boolean; reason?: string; readiness: typeof MARKET_READINESS } {
-  const msg = `${SDK_DEMO_AGREEMENT_DOMAIN}|${input.agreementHashHex}`;
+  const hash = input.agreementHashHex.trim().toLowerCase();
+  if (!isSha256Hex(hash)) {
+    return { ok: false, reason: 'AGREEMENT_HASH_INVALID', readiness: MARKET_READINESS };
+  }
+  const expectedBuyer = input.expectedBuyerPublicKeyB64.trim();
+  const expectedSeller = input.expectedSellerPublicKeyB64.trim();
+  if (!expectedBuyer || !expectedSeller) {
+    return { ok: false, reason: 'EXPECTED_SIGNERS_REQUIRED', readiness: MARKET_READINESS };
+  }
+  if (expectedBuyer === expectedSeller) {
+    return { ok: false, reason: 'SAME_PARTY_BILATERAL_REJECTED', readiness: MARKET_READINESS };
+  }
+  if (input.signatures.buyerPublicKeyB64.trim() !== expectedBuyer) {
+    return { ok: false, reason: 'WRONG_BUYER_SIGNER', readiness: MARKET_READINESS };
+  }
+  if (input.signatures.sellerPublicKeyB64.trim() !== expectedSeller) {
+    return { ok: false, reason: 'WRONG_SELLER_SIGNER', readiness: MARKET_READINESS };
+  }
+  const msg = `${SDK_DEMO_AGREEMENT_DOMAIN}|hash=${hash}`;
   try {
     const buyerOk = verifyUtf8Detached(
       msg,
       input.signatures.buyerSignatureB64,
-      decodePublicKeyB64(input.signatures.buyerPublicKeyB64)
+      decodePublicKeyB64(expectedBuyer)
     );
     const sellerOk = verifyUtf8Detached(
       msg,
       input.signatures.sellerSignatureB64,
-      decodePublicKeyB64(input.signatures.sellerPublicKeyB64)
+      decodePublicKeyB64(expectedSeller)
     );
     if (!buyerOk || !sellerOk) {
       return { ok: false, reason: 'SIGNATURE_INVALID', readiness: MARKET_READINESS };
@@ -120,14 +139,24 @@ export function verifyBilateralAgreement(input: {
   }
 }
 
+/** Require positive principal exactly representable in 6 decimals (fail-closed). */
 export function quoteDirectMarketPayment(input: {
   category: MarketCategory;
   principalCpxDecimal: string;
 }): MarketPaymentQuote {
   const rational = parseDecimalToRational(input.principalCpxDecimal);
   const converted = rationalCpxToRawDg2(rational);
-  if (!converted.exact && rational.denominator !== 1n) {
-    // DG2 applied for demo quote when needed; prefer exact principals in examples.
+  if (!converted.exact) {
+    throw new Error('MARKET_PRINCIPAL_NOT_EXACTLY_REPRESENTABLE');
+  }
+  if (converted.raw <= 0n) {
+    throw new Error('MARKET_PRINCIPAL_MUST_BE_POSITIVE');
+  }
+  // Reject >6 fractional digits already handled by exactness after DG2 only if exact.
+  const parts = input.principalCpxDecimal.trim().split('.');
+  const frac = parts[1] ?? '';
+  if (frac.length > CPX_DECIMALS) {
+    throw new Error('MARKET_PRINCIPAL_TOO_PRECISE');
   }
   const principalRaw = converted.raw;
   const burnRaw = marketBurnRawExactOrFail(principalRaw);
@@ -158,8 +187,12 @@ export function simulateBilateralDeal(input: {
   hash: MarketAgreementHash;
   signatures: BilateralSignatures;
   verified: boolean;
+  verifyReason?: string;
   payment: MarketPaymentQuote;
 } {
+  if (input.buyer.publicKeyB64 === input.seller.publicKeyB64) {
+    throw new Error('SAME_PARTY_BILATERAL_REJECTED');
+  }
   const hash = hashMarketAgreement(input.draft);
   const signatures: BilateralSignatures = {
     buyerPublicKeyB64: input.buyer.publicKeyB64,
@@ -167,15 +200,24 @@ export function simulateBilateralDeal(input: {
     buyerSignatureB64: signAgreementHash(hash.agreementHashHex, input.buyer),
     sellerSignatureB64: signAgreementHash(hash.agreementHashHex, input.seller),
   };
-  const verified = verifyBilateralAgreement({
+  const v = verifyBilateralAgreement({
     agreementHashHex: hash.agreementHashHex,
     signatures,
-  }).ok;
+    expectedBuyerPublicKeyB64: input.buyer.publicKeyB64,
+    expectedSellerPublicKeyB64: input.seller.publicKeyB64,
+  });
   const payment = quoteDirectMarketPayment({
     category: input.draft.category,
     principalCpxDecimal: input.draft.principalCpxDecimal,
   });
-  return { readiness: MARKET_READINESS, hash, signatures, verified, payment };
+  return {
+    readiness: MARKET_READINESS,
+    hash,
+    signatures,
+    verified: v.ok,
+    verifyReason: v.reason,
+    payment,
+  };
 }
 
 export { generateDemoKeyPair };

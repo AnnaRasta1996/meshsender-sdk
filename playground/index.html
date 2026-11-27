@@ -3,80 +3,83 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MeshSender Open SDK — Developer Playground</title>
+    <title>MeshSender Open SDK — Judge Playground</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header>
       <h1>MeshSender Open SDK</h1>
       <p>
-        Hackathon Flagship Playground — offline mesh simulation, delivery proofs,
-        economic quotes, Market burn math, and live Solana read-only inspection.
-        No signing. No spend. No fabricated settlement.
+        Same TypeScript SDK modules, browser-bundled. Offline SCF, proofs, paged relay verify,
+        economy, Market quote, Node Passport possession proof, live Solana read-only.
       </p>
       <div class="badges">
         <span class="badge">SIMULATED</span>
         <span class="badge">VERIFIED_SYNTHETIC</span>
         <span class="badge">LIVE_READ_ONLY</span>
-        <span class="badge">PENDING hardware</span>
+        <span class="badge">PENDING hardware/settlement</span>
       </div>
     </header>
 
     <main>
-      <section>
-        <h2>1. Offline network lab</h2>
-        <p class="hint">Deterministic store-carry-forward across synthetic meetings.</p>
-        <button id="btn-offline">Run offline delivery</button>
-        <pre id="out-offline">Ready.</pre>
+      <section class="wide">
+        <h2>Network progression</h2>
+        <p class="hint">Visual carrier route after offline simulation.</p>
+        <div id="net-viz" class="net-viz"></div>
+        <div class="row">
+          <button id="btn-offline" data-testid="btn-offline">Run offline delivery</button>
+          <button id="btn-outage" class="secondary" data-testid="btn-outage">Run with outage/expiry miss</button>
+        </div>
+        <pre id="out-offline" data-testid="out-offline">Ready.</pre>
       </section>
 
       <section>
-        <h2>2. Delivery proof</h2>
-        <p class="hint">Illustrative Ed25519 demo protocol — tamper rejection.</p>
-        <button id="btn-proof">Create + verify + tamper</button>
-        <pre id="out-proof">Ready.</pre>
+        <h2>Delivery proof tamper</h2>
+        <button id="btn-proof" data-testid="btn-proof">Verify + tamper</button>
+        <pre id="out-proof" data-testid="out-proof">Ready.</pre>
       </section>
 
       <section>
-        <h2>3. Economy controls</h2>
+        <h2>Paged relay verify</h2>
+        <button id="btn-relay" data-testid="btn-relay">Build + verify pages</button>
+        <pre id="out-relay" data-testid="out-relay">Ready.</pre>
+      </section>
+
+      <section>
+        <h2>Node Passport</h2>
+        <button id="btn-passport" data-testid="btn-passport">Possession proof verify</button>
+        <pre id="out-passport" data-testid="out-passport">Ready.</pre>
+      </section>
+
+      <section>
+        <h2>Economy</h2>
         <label for="price">CPX EUR price</label>
-        <input id="price" value="0.0005" />
-        <button id="btn-econ">Quote burn + relay</button>
-        <pre id="out-econ">Ready.</pre>
+        <input id="price" data-testid="price" value="0.0005" />
+        <button id="btn-econ" data-testid="btn-econ">Quote burn + payable</button>
+        <pre id="out-econ" data-testid="out-econ">Ready.</pre>
       </section>
 
       <section>
-        <h2>4. Market quote</h2>
-        <label for="principal">Principal CPX</label>
-        <input id="principal" value="10.000000" />
-        <button id="btn-market">Quote direct payment</button>
-        <pre id="out-market">Ready.</pre>
+        <h2>Market quote</h2>
+        <label for="principal">Principal CPX (exact 6dp)</label>
+        <input id="principal" data-testid="principal" value="10.000000" />
+        <button id="btn-market" data-testid="btn-market">Quote direct payment</button>
+        <pre id="out-market" data-testid="out-market">Ready.</pre>
       </section>
 
-      <section>
-        <h2>5. Live Solana read-only</h2>
-        <p class="hint">Public RPC: mint + program executable status.</p>
-        <button id="btn-solana">Inspect mainnet</button>
-        <pre id="out-solana">Ready.</pre>
-      </section>
-
-      <section>
-        <h2>6. Relay evidence (summary)</h2>
-        <p class="hint">Rolling commitment demo via Node SDK <code>npm run demo</code>.</p>
-        <button class="secondary" id="btn-relay-note">Show disclosure</button>
-        <pre id="out-relay">Ready.</pre>
+      <section class="wide">
+        <h2>Live Solana read-only</h2>
+        <button id="btn-solana" data-testid="btn-solana">Inspect mint + dual-RPC program</button>
+        <pre id="out-solana" data-testid="out-solana">Ready.</pre>
       </section>
     </main>
 
     <footer>
-      MIT proposed for this Open SDK package only. Private MeshSender product source remains closed.
-      Physical BLE / Wi-Fi Direct / LoRa adapters: PENDING. Production settlement: PENDING.
-      GitHub Pages: publish the <code>playground/</code> folder after owner approval.
+      CPX mint and settlement program are separate. MIT proposed for SDK only. Public Pages not enabled.
+      Physical radios / production settlement / U54F8: PENDING.
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
-    <script src="./sdk-browser.js"></script>
+    <script src="./meshsender-sdk.bundle.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

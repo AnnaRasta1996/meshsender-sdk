@@ -22,26 +22,30 @@
     "LICENSE",
     "PUBLICATION_ALLOWLIST.md",
     "FEATURE_READINESS.md",
-    "DISCLOSURE_REVIEW.md"
+    "DISCLOSURE_REVIEW.md",
+    ".github/workflows/pages.yml"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test tests/sdk.core.test.ts",
+    "build": "tsc -p tsconfig.json && npm run build:browser",
+    "build:browser": "node scripts/build-browser.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test tests/sdk.core.test.ts tests/sdk.u92f2.test.ts",
     "demo": "node --import tsx scripts/demo.ts",
-    "compare:economy": "node --import tsx scripts/compare-economy-local.ts",
-    "playground:serve": "node scripts/serve-playground.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "playground:serve": "npm run build:browser && node scripts/serve-playground.mjs",
+    "playground:interact": "node --import tsx scripts/playground-interact.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@noble/hashes": "^1.7.1",
     "@solana/web3.js": "^1.98.4",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
+    "esbuild": "^0.25.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

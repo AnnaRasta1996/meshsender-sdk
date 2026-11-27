@@ -1,26 +1,37 @@
 # MeshSender Open SDK — Hackathon Flagship Edition
 
-Public-safe TypeScript SDK for **MeshSender** / **Chaos Paradox (CPX)** demonstrations aimed at Dev3pack Hackathon (**Best App Overall**, **Best DeFi on Solana**).
+Public-safe TypeScript SDK for **MeshSender** / **Chaos Paradox (CPX)**.
 
-This package preserves the product vision:
+## Product vision (preserved)
 
-- offline store-carry-forward mesh messaging independent of centralized carriers
-- cryptographic delivery / relay evidence concepts
-- Solana-native CPX economy with Reward Reserve funded relays
-- Paradox Market direct peer payments (full principal + 0.10% burn, zero platform fee)
+MeshSender aims to eliminate mandatory dependence on centralized carriers for core messaging: encrypted store-carry-forward across devices (Internet + BLE + Wi-Fi Direct + LoRa transports), cryptographic delivery/relay evidence concepts, Solana-native CPX economics (Reward Reserve funded relays), and Paradox Market direct peer payments (full recipient principal + 0.10% burn, zero platform fee).
 
-It does **not** publish the private MeshSender product repository, proprietary routing, production authentication, settlement engines, native modules, or infrastructure endpoints.
+## What this SDK can do now
 
-## Readiness labels
-
-| Label | Meaning |
+| Capability | Readiness |
 |---|---|
-| `LIVE_READ_ONLY` | Real mainnet reads only |
-| `VERIFIED_SYNTHETIC` | Real crypto/math on synthetic fixtures |
-| `SIMULATED` | Deterministic local simulation |
-| `PENDING` | Explicitly not available yet |
+| Deterministic offline SCF Network Lab | SIMULATED |
+| Transport adapter interfaces + sims | SIMULATED (hardware PENDING) |
+| Delivery / relay / passport crypto fixtures | VERIFIED_SYNTHETIC (illustrative protocols) |
+| Economy BigInt quotes + capped payable simulation | VERIFIED_SYNTHETIC (non-spending) |
+| Paradox Market bilateral + payment quote | SIMULATED |
+| CPX mint + settlement program inspection | LIVE_READ_ONLY |
 
-Never treat demo output as a successful production settlement or physical-device proof.
+## CPX mint vs settlement program
+
+These are **different** on-chain objects:
+
+- **CPX SPL token mint:** `9s3CcNwhvPKWi1i5hJSQgRLDrmjQXAkQgRsrDkgiEb6X`
+- **Mesh settlement program ID:** `GSRFUJcMMZdSgqueeGd9mWhUfrSF33QHVELNNWbvpKNg`
+
+The mint is the token. The program ID is a separate executable account (may be not found / not executable on a given cluster). The SDK never confuses them and never deploys.
+
+## Pending production features
+
+- Physical BLE / Wi-Fi Direct / LoRa adapters
+- Production settlement / paid-mesh writes (economic gates OFF)
+- Two-device live agreement exchange (U54F8)
+- Production identity authority (Node Passport here is synthetic possession proof only)
 
 ## One-command demo
 
@@ -33,62 +44,57 @@ npm run demo
 Skip live RPC:
 
 ```bash
-set MESHSENDER_SDK_SKIP_LIVE=1
-npm run demo
+# Windows PowerShell
+$env:MESHSENDER_SDK_SKIP_LIVE='1'; npm run demo
 ```
 
-## Minimal setup
+## Install / build / test
 
-- Node.js **20+**
-- Windows/macOS/Linux
-- Network only required for Solana `LIVE_READ_ONLY` examples
+Node.js **20+** required.
 
 ```bash
 npm install
 npm run typecheck
+npm run build
 npm test
 npm run demo
 npm run playground:serve
 ```
 
-Open `http://127.0.0.1:8787/`.
+Import after build:
 
-## Modules
-
-1. **Network Lab** — deterministic offline SCF simulation (`SIMULATED`)
-2. **Transport** — Internet/BLE/Wi-Fi Direct/LoRa interfaces + sims (`SIMULATED`; hardware `PENDING`)
-3. **Delivery Proofs** — Ed25519 illustrative demo protocol (`VERIFIED_SYNTHETIC`)
-4. **Relay Evidence** — paged hops + rolling commitments (`VERIFIED_SYNTHETIC`)
-5. **Node Passport** — public verify demos (`VERIFIED_SYNTHETIC`)
-6. **Solana** — mainnet mint/program/balance/tx inspection (`LIVE_READ_ONLY`)
-7. **Economy** — BigInt DG2 quotes for burn/relay/caps/referral/first-5000 (`VERIFIED_SYNTHETIC`)
-8. **Paradox Market** — bilateral demo + payment quote (`SIMULATED`)
-9. **Developer Playground** — static HTML/CSS/JS dashboard
-
-## Public chain identifiers
-
-- CPX mint: `9s3CcNwhvPKWi1i5hJSQgRLDrmjQXAkQgRsrDkgiEb6X`
-- Program ID: `GSRFUJcMMZdSgqueeGd9mWhUfrSF33QHVELNNWbvpKNg`
-
-## Examples
-
-```bash
-npx tsx examples/e2e-offline-delivery.ts
-npx tsx examples/tampered-proof.ts
-npx tsx examples/live-mainnet-inspect.ts
+```ts
+import {
+  runSimulatedDeliveryPipeline,
+  liveMainnetSnapshot,
+  CPX_MAINNET_MINT_ADDRESS,
+  MESHSENDER_PROGRAM_ID,
+} from '@meshsender/sdk';
 ```
 
-## GitHub Pages
+Local path import (this repo):
 
-After owner approval of exact files + MIT license:
+```ts
+import { runSimulatedDeliveryPipeline } from './dist/index.js';
+```
 
-1. Create public repo `meshsender-sdk` from this standalone directory (no private git history).
-2. Enable Pages from `/playground` (or deploy `playground/` to `docs/`).
-3. Confirm no private source maps, credentials, wallet labels, or allowlist violations.
+## Developer Playground
+
+`playground/` is powered by **`meshsender-sdk.bundle.js`** generated from the same TypeScript source (`npm run build:browser`). Divergent handwritten algorithm copies are not used.
+
+```bash
+npm run playground:serve
+# http://127.0.0.1:8787/
+npm run playground:interact
+```
+
+## GitHub Pages (not enabled)
+
+Workflow stub: `.github/workflows/pages.yml` prepares the allowlisted `playground/` artifact only.  
+**Do not enable Pages / public open until owner approval after independent review.**
 
 ## License
 
-**Proposed MIT for this Open SDK package only.**  
-Do not publish until owner approves exact file list and license after independent review.
-
-Private product (`secure-mesh-chat`) remains private.
+**MIT proposed for this Open SDK package only.**  
+Private MeshSender / `secure-mesh-chat` product source is not licensed by this file.  
+Repository should remain **PRIVATE** until explicit owner approval.
