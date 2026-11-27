@@ -7,25 +7,19 @@
 import {
   Connection,
   PublicKey,
-  clusterApiUrl,
   type ParsedAccountData,
 } from '@solana/web3.js';
 import { Readiness } from '../readiness.js';
+import {
+  CPX_MAINNET_MINT_ADDRESS,
+  MESHSENDER_PROGRAM_ID,
+  CPX_DECIMALS_EXPECTED,
+  SPL_TOKEN_PROGRAM_ID,
+  DEFAULT_MAINNET_RPC,
+  SECONDARY_MAINNET_RPC,
+} from './publicIdentifiers.js';
 
 export const SOLANA_READINESS = Readiness.LIVE_READ_ONLY;
-
-/** Canonical Chaos Paradox (CPX) mainnet mint. */
-export const CPX_MAINNET_MINT_ADDRESS =
-  '9s3CcNwhvPKWi1i5hJSQgRLDrmjQXAkQgRsrDkgiEb6X' as const;
-
-/** Mesh settlement program ID (separate from the CPX SPL mint). */
-export const MESHSENDER_PROGRAM_ID =
-  'GSRFUJcMMZdSgqueeGd9mWhUfrSF33QHVELNNWbvpKNg' as const;
-
-export const CPX_DECIMALS_EXPECTED = 6 as const;
-export const SPL_TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as const;
-export const DEFAULT_MAINNET_RPC = clusterApiUrl('mainnet-beta');
-export const SECONDARY_MAINNET_RPC = 'https://solana-rpc.publicnode.com';
 
 export type SolanaStatusCode =
   | 'MINT_VERIFIED'

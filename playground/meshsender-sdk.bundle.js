@@ -1,3 +1,4 @@
+/* MeshSender Open SDK browser bundle — third-party notices preserved at EOF by esbuild. */
 "use strict";
 var MeshSenderSDK = (() => {
   var __create = Object.create;
@@ -2338,6 +2339,7 @@ var MeshSenderSDK = (() => {
   __export(browser_entry_exports, {
     BROWSER_BUNDLE: () => BROWSER_BUNDLE,
     CPX_DECIMALS: () => CPX_DECIMALS,
+    CPX_DECIMALS_EXPECTED: () => CPX_DECIMALS_EXPECTED,
     CPX_MAINNET_MINT_ADDRESS: () => CPX_MAINNET_MINT_ADDRESS,
     CPX_RAW_SCALE: () => CPX_RAW_SCALE,
     DEFAULT_MAINNET_RPC: () => DEFAULT_MAINNET_RPC,
@@ -2380,6 +2382,8 @@ var MeshSenderSDK = (() => {
     SDK_NAME: () => SDK_NAME,
     SDK_VERSION: () => SDK_VERSION,
     SECONDARY_MAINNET_RPC: () => SECONDARY_MAINNET_RPC,
+    SPL_TOKEN_PROGRAM_ID: () => SPL_TOKEN_PROGRAM_ID,
+    allocateSequentialRelayRewards: () => allocateSequentialRelayRewards,
     applyHighConfidenceWeightOrBlock: () => applyHighConfidenceWeightOrBlock,
     buildCanonicalDeliveryMessage: () => buildCanonicalDeliveryMessage,
     buildPagedRelayEvidence: () => buildPagedRelayEvidence,
@@ -2398,6 +2402,7 @@ var MeshSenderSDK = (() => {
     createWifiDirectSimAdapter: () => createWifiDirectSimAdapter,
     deriveCommonRewardPeriodId: () => deriveCommonRewardPeriodId,
     digestPayload: () => digestPayload,
+    extractRelayForwardTimestampsFromEvents: () => extractRelayForwardTimestampsFromEvents,
     fetchInspectCpxMint: () => fetchInspectCpxMint,
     fetchInspectProgram: () => fetchInspectProgram,
     fetchInspectProgramDualRpc: () => fetchInspectProgramDualRpc,
@@ -3428,6 +3433,9 @@ var MeshSenderSDK = (() => {
     if (relays.length !== input.forwardedAtMsByHop.length) {
       throw new Error("HOP_TIME_COUNT_MISMATCH");
     }
+    if (relays.length !== input.rewardRawDecimalByHop.length) {
+      throw new Error("HOP_REWARD_COUNT_MISMATCH");
+    }
     const hops = [];
     const expectedSignerPublicKeysB64 = [];
     for (let i = 0; i < relays.length; i++) {
@@ -3440,7 +3448,7 @@ var MeshSenderSDK = (() => {
           previousNodeId: input.deliveryRoute[i],
           forwardedAtMs: input.forwardedAtMsByHop[i],
           ingressTransport: input.ingressTransport ?? "ble",
-          rewardRawDecimal: input.rewardRawDecimal
+          rewardRawDecimal: input.rewardRawDecimalByHop[i]
         }
       });
       hops.push(hop);
@@ -3729,6 +3737,37 @@ var MeshSenderSDK = (() => {
       neverExceedsCaps: true
     };
   }
+  function allocateSequentialRelayRewards(input) {
+    if (!Number.isInteger(input.relayCount) || input.relayCount < 0) {
+      throw new Error("ECONOMY_INVALID_RELAY_COUNT");
+    }
+    assertNonNegative(input.globalRemainingRaw, "globalRemainingRaw");
+    let remaining = input.globalRemainingRaw;
+    const perRelayPayableRaw = [];
+    let totalPayableRaw = 0n;
+    for (let i = 0; i < input.relayCount; i++) {
+      const counted = input.alreadyCountedNodePeriodRawByRelay?.[i] ?? input.alreadyCountedNodePeriodRawByRelay?.[0] ?? 0n;
+      const step = simulatePayableRelayReward({
+        nominalRewardRaw: input.nominalRewardRaw,
+        alreadyCountedNodePeriodRaw: counted,
+        globalRemainingRaw: remaining
+      });
+      perRelayPayableRaw.push(step.actualPayableRaw);
+      totalPayableRaw += step.actualPayableRaw;
+      remaining -= step.actualPayableRaw;
+      if (remaining < 0n) throw new Error("ECONOMY_BUDGET_UNDERFLOW");
+    }
+    if (totalPayableRaw > input.globalRemainingRaw) {
+      throw new Error("ECONOMY_AGGREGATE_EXCEEDS_GLOBAL");
+    }
+    return {
+      ok: true,
+      perRelayPayableRaw,
+      totalPayableRaw,
+      globalRemainingAfterRaw: remaining,
+      neverExceedsCaps: true
+    };
+  }
   function quoteDeliveryEconomy(input) {
     const burn = offlineServiceBurnCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
     const nominal = nominalRelayRewardCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
@@ -3901,6 +3940,22 @@ var MeshSenderSDK = (() => {
   }
 
   // src/pipeline/simulatedDeliveryPipeline.ts
+  function extractRelayForwardTimestampsFromEvents(events, deliveryRoute) {
+    const relays = deliveryRoute.slice(1, -1);
+    const times = [];
+    for (let i = 0; i < relays.length; i++) {
+      const relay = relays[i];
+      const next = deliveryRoute[i + 2];
+      const ev = events.find(
+        (e) => e.type === "FORWARDED" && e.from === relay && e.to === next
+      );
+      if (!ev || ev.type !== "FORWARDED") {
+        throw new Error(`MISSING_ROUTE_FORWARD_EVENT:${relay}->${next}`);
+      }
+      times.push(ev.atMs);
+    }
+    return times;
+  }
   function runSimulatedDeliveryPipeline(input) {
     const simulation = runOfflineStoreCarryForward(input.simulationInput);
     if (!simulation.delivered || simulation.deliveryAtMs == null || simulation.hops == null || !simulation.deliveryRoute) {
@@ -3936,13 +3991,24 @@ var MeshSenderSDK = (() => {
     if (input.buildRelay !== false && simulation.deliveryRoute.length >= 3) {
       const intermediates = simulation.deliveryRoute.length - 2;
       const hopSigners = Array.from({ length: intermediates }, () => generateDemoKeyPair());
-      const times = hopSigners.map((_, i) => (simulation.deliveryAtMs ?? 0) - (intermediates - i));
+      const times = extractRelayForwardTimestampsFromEvents(
+        simulation.events,
+        simulation.deliveryRoute
+      );
+      const globalRemainingRaw = input.globalRemainingRawOverride !== void 0 ? input.globalRemainingRawOverride : economy.globalRemainingRaw;
+      const countedByRelay = input.alreadyCountedNodePeriodRawByRelay ?? Array.from({ length: intermediates }, () => input.alreadyCountedNodePeriodRaw ?? 0n);
+      const allocation = allocateSequentialRelayRewards({
+        relayCount: intermediates,
+        nominalRewardRaw: economy.nominalRelayRaw,
+        alreadyCountedNodePeriodRawByRelay: countedByRelay,
+        globalRemainingRaw
+      });
       const built = buildRelayHopsFromDeliveryRoute({
         messageId: input.simulationInput.packet.packetId,
         deliveryRoute: simulation.deliveryRoute,
         hopSigners,
         forwardedAtMsByHop: times,
-        rewardRawDecimal: economy.actualPayableRaw.toString()
+        rewardRawDecimalByHop: allocation.perRelayPayableRaw.map((r) => r.toString())
       });
       const bundle = buildPagedRelayEvidence({
         messageId: input.simulationInput.packet.packetId,
@@ -3969,7 +4035,10 @@ var MeshSenderSDK = (() => {
       relay = {
         bundle,
         expectedSigners: built.expectedSignerPublicKeysB64,
-        verified: true
+        verified: true,
+        perRelayPayableRaw: allocation.perRelayPayableRaw,
+        totalPayableRaw: allocation.totalPayableRaw,
+        forwardedAtMsByHop: times
       };
     }
     return {
@@ -3983,14 +4052,12 @@ var MeshSenderSDK = (() => {
     };
   }
 
-  // src/solana/mainnetReadOnly.ts
-  var import_web3 = __require("@solana/web3.js");
-  var SOLANA_READINESS = Readiness.LIVE_READ_ONLY;
+  // src/solana/publicIdentifiers.ts
   var CPX_MAINNET_MINT_ADDRESS = "9s3CcNwhvPKWi1i5hJSQgRLDrmjQXAkQgRsrDkgiEb6X";
   var MESHSENDER_PROGRAM_ID = "GSRFUJcMMZdSgqueeGd9mWhUfrSF33QHVELNNWbvpKNg";
   var CPX_DECIMALS_EXPECTED = 6;
   var SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-  var DEFAULT_MAINNET_RPC = (0, import_web3.clusterApiUrl)("mainnet-beta");
+  var DEFAULT_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
   var SECONDARY_MAINNET_RPC = "https://solana-rpc.publicnode.com";
 
   // src/solana/publicRpcFetch.ts

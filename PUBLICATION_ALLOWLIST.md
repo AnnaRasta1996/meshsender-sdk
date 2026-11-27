@@ -11,7 +11,8 @@ Owner must approve this list + MIT before any **public** open.
 - `tests/**/*.ts`
 - `examples/**/*.ts`
 - `playground/**` including generated `meshsender-sdk.bundle.js`
-- `scripts/demo.ts`, `scripts/serve-playground.mjs`, `scripts/build-browser.mjs`, `scripts/playground-interact.ts`
+- `scripts/demo.ts`, `scripts/serve-playground.mjs`, `scripts/build-browser.mjs`, `scripts/playground-interact.ts`, `scripts/bundle-startup-check.mjs`
+- `src/solana/publicIdentifiers.ts` (browser-safe mint/program/RPC constants)
 - `.github/workflows/pages.yml` (prepare-only; Pages not enabled)
 - `.gitignore`
 

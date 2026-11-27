@@ -50,49 +50,73 @@ const baseSim = {
 let lastPipeline = null;
 
 document.getElementById('btn-offline').onclick = () => {
-  lastPipeline = sdk.runSimulatedDeliveryPipeline({
-    simulationInput: baseSim,
-    cpxEurPriceDecimal: document.getElementById('price').value.trim() || '0.0005',
-  });
-  renderRoute(lastPipeline.ok ? lastPipeline.simulation.deliveryRoute : null);
-  show(
-    'out-offline',
-    lastPipeline.ok
-      ? {
-          readiness: lastPipeline.simulation.readiness,
-          delivered: true,
-          hops: lastPipeline.simulation.hops,
-          route: lastPipeline.simulation.deliveryRoute,
-          carrierRoutes: lastPipeline.simulation.carrierRoutes,
-        }
-      : lastPipeline,
-    lastPipeline.ok ? 'ok' : 'bad'
-  );
+  try {
+    lastPipeline = sdk.runSimulatedDeliveryPipeline({
+      simulationInput: baseSim,
+      cpxEurPriceDecimal: document.getElementById('price').value.trim() || '0.0005',
+    });
+    if (!lastPipeline.ok) {
+      lastPipeline = null;
+      renderRoute(null);
+      show('out-offline', { error: 'DELIVERY_NOT_SUCCESSFUL' }, 'bad');
+      return;
+    }
+    renderRoute(lastPipeline.simulation.deliveryRoute);
+    show(
+      'out-offline',
+      {
+        readiness: lastPipeline.simulation.readiness,
+        delivered: true,
+        hops: lastPipeline.simulation.hops,
+        route: lastPipeline.simulation.deliveryRoute,
+        carrierRoutes: lastPipeline.simulation.carrierRoutes,
+        totalRelayPayableRaw: lastPipeline.relay
+          ? lastPipeline.relay.totalPayableRaw.toString()
+          : null,
+        perRelayPayableRaw: lastPipeline.relay
+          ? lastPipeline.relay.perRelayPayableRaw.map((x) => x.toString())
+          : null,
+      },
+      'ok'
+    );
+  } catch (e) {
+    lastPipeline = null;
+    renderRoute(null);
+    show('out-offline', { error: String(e.message || e) }, 'bad');
+  }
 };
 
 document.getElementById('btn-outage').onclick = () => {
-  const sim = sdk.runOfflineStoreCarryForward({
-    ...baseSim,
-    outages: { Relay2: [{ startMs: 0, endMs: 10_000 }] },
-    packet: { ...baseSim.packet, ttlMs: 2500 },
-    mobility: [
-      { atMs: 1000, meeting: ['Alice', 'Relay1'] },
-      { atMs: 2000, meeting: ['Relay1', 'Relay2'] },
-      { atMs: 3000, meeting: ['Relay2', 'Bob'] },
-    ],
-  });
-  renderRoute(sim.deliveryRoute);
-  show(
-    'out-offline',
-    {
-      readiness: sim.readiness,
-      delivered: sim.delivered,
-      expired: sim.expired,
-      hops: sim.hops,
-      note: 'Outage and/or expiry path',
-    },
-    sim.delivered ? 'ok' : 'warn'
-  );
+  try {
+    // Clear stale successful pipeline so proof/relay buttons cannot reuse prior success.
+    lastPipeline = null;
+    const sim = sdk.runOfflineStoreCarryForward({
+      ...baseSim,
+      outages: { Relay2: [{ startMs: 0, endMs: 10_000 }] },
+      packet: { ...baseSim.packet, ttlMs: 2500 },
+      mobility: [
+        { atMs: 1000, meeting: ['Alice', 'Relay1'] },
+        { atMs: 2000, meeting: ['Relay1', 'Relay2'] },
+        { atMs: 3000, meeting: ['Relay2', 'Bob'] },
+      ],
+    });
+    renderRoute(sim.deliveryRoute);
+    show(
+      'out-offline',
+      {
+        readiness: sim.readiness,
+        delivered: sim.delivered,
+        expired: sim.expired,
+        hops: sim.hops,
+        note: 'Outage and/or expiry path — prior pipeline state cleared',
+      },
+      sim.delivered ? 'ok' : 'warn'
+    );
+  } catch (e) {
+    lastPipeline = null;
+    renderRoute(null);
+    show('out-offline', { error: String(e.message || e) }, 'bad');
+  }
 };
 
 document.getElementById('btn-proof').onclick = () => {

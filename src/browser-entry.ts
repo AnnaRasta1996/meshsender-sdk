@@ -10,6 +10,7 @@ export * from './node-passport/publicIdentity.js';
 export * from './economy/canonicalQuotes.js';
 export * from './market/paradoxMarket.js';
 export * from './pipeline/simulatedDeliveryPipeline.js';
+export * from './solana/publicIdentifiers.js';
 export * from './solana/publicRpcFetch.js';
 
 export const SDK_NAME = '@meshsender/sdk' as const;

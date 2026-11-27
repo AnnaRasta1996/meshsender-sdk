@@ -30,7 +30,12 @@ async function main(): Promise<void> {
     return;
   }
   const bundle = readFileSync(bundlePath, 'utf8');
-  if (!bundle.includes('runSimulatedDeliveryPipeline') || bundle.includes('sdk-browser.js')) {
+  if (
+    !bundle.includes('runSimulatedDeliveryPipeline') ||
+    bundle.includes('sdk-browser.js') ||
+    bundle.includes('__require("@solana/web3.js")') ||
+    bundle.includes('src/solana/mainnetReadOnly')
+  ) {
     console.error('BROWSER_BUNDLE_INVALID');
     process.exitCode = 1;
     return;

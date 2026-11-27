@@ -10,6 +10,7 @@ export * from './transport/adapters.js';
 export * from './delivery-proofs/demoProof.js';
 export * from './relay-evidence/pagedCommitment.js';
 export * from './node-passport/publicIdentity.js';
+export * from './solana/publicIdentifiers.js';
 export * from './solana/mainnetReadOnly.js';
 export * from './solana/publicRpcFetch.js';
 export * from './economy/canonicalQuotes.js';

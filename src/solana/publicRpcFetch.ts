@@ -11,7 +11,7 @@ import {
   SPL_TOKEN_PROGRAM_ID,
   DEFAULT_MAINNET_RPC,
   SECONDARY_MAINNET_RPC,
-} from './mainnetReadOnly.js';
+} from './publicIdentifiers.js';
 
 export const PUBLIC_RPC_READINESS = Readiness.LIVE_READ_ONLY;
 
@@ -183,9 +183,3 @@ export async function fetchInspectProgramDualRpc(
   return { readiness: PUBLIC_RPC_READINESS, results, agreement };
 }
 
-export {
-  CPX_MAINNET_MINT_ADDRESS,
-  MESHSENDER_PROGRAM_ID,
-  DEFAULT_MAINNET_RPC,
-  SECONDARY_MAINNET_RPC,
-};

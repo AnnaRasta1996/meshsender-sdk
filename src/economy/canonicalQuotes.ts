@@ -302,6 +302,57 @@ export function simulatePayableRelayReward(input: {
   };
 }
 
+/**
+ * Allocate simulated relay rewards sequentially against one shared remaining
+ * global budget and per-node caps. Never assigns the same capped payable
+ * independently to every relay. Non-spending simulation only.
+ */
+export function allocateSequentialRelayRewards(input: {
+  relayCount: number;
+  nominalRewardRaw: bigint;
+  alreadyCountedNodePeriodRawByRelay?: readonly bigint[];
+  globalRemainingRaw: bigint;
+}): {
+  ok: true;
+  perRelayPayableRaw: readonly bigint[];
+  totalPayableRaw: bigint;
+  globalRemainingAfterRaw: bigint;
+  neverExceedsCaps: true;
+} {
+  if (!Number.isInteger(input.relayCount) || input.relayCount < 0) {
+    throw new Error('ECONOMY_INVALID_RELAY_COUNT');
+  }
+  assertNonNegative(input.globalRemainingRaw, 'globalRemainingRaw');
+  let remaining = input.globalRemainingRaw;
+  const perRelayPayableRaw: bigint[] = [];
+  let totalPayableRaw = 0n;
+  for (let i = 0; i < input.relayCount; i++) {
+    const counted =
+      input.alreadyCountedNodePeriodRawByRelay?.[i] ??
+      input.alreadyCountedNodePeriodRawByRelay?.[0] ??
+      0n;
+    const step = simulatePayableRelayReward({
+      nominalRewardRaw: input.nominalRewardRaw,
+      alreadyCountedNodePeriodRaw: counted,
+      globalRemainingRaw: remaining,
+    });
+    perRelayPayableRaw.push(step.actualPayableRaw);
+    totalPayableRaw += step.actualPayableRaw;
+    remaining -= step.actualPayableRaw;
+    if (remaining < 0n) throw new Error('ECONOMY_BUDGET_UNDERFLOW');
+  }
+  if (totalPayableRaw > input.globalRemainingRaw) {
+    throw new Error('ECONOMY_AGGREGATE_EXCEEDS_GLOBAL');
+  }
+  return {
+    ok: true,
+    perRelayPayableRaw,
+    totalPayableRaw,
+    globalRemainingAfterRaw: remaining,
+    neverExceedsCaps: true,
+  };
+}
+
 export function quoteDeliveryEconomy(input: {
   cpxEurPriceDecimal: string;
   alreadyCountedNodePeriodRaw?: bigint;

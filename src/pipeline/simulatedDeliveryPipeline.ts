@@ -7,6 +7,7 @@ import {
   runOfflineStoreCarryForward,
   type OfflineSimulationInput,
   type OfflineSimulationResult,
+  type LabEvent,
 } from '../network-lab/offlineSimulation.js';
 import {
   createDeliveryProofFromSimulation,
@@ -21,7 +22,10 @@ import {
 } from '../relay-evidence/pagedCommitment.js';
 import { generateDemoKeyPair, type DemoKeyPair } from '../crypto/ed25519.js';
 import { digestPayload } from '../delivery-proofs/demoProof.js';
-import { quoteDeliveryEconomy } from '../economy/canonicalQuotes.js';
+import {
+  allocateSequentialRelayRewards,
+  quoteDeliveryEconomy,
+} from '../economy/canonicalQuotes.js';
 
 export type SimulatedDeliveryPipelineResult =
   | Readonly<{
@@ -34,6 +38,9 @@ export type SimulatedDeliveryPipelineResult =
         bundle: DemoRelayEvidenceBundle;
         expectedSigners: readonly string[];
         verified: true;
+        perRelayPayableRaw: readonly bigint[];
+        totalPayableRaw: bigint;
+        forwardedAtMsByHop: readonly number[];
       };
       economy: ReturnType<typeof quoteDeliveryEconomy>;
     }>
@@ -44,12 +51,36 @@ export type SimulatedDeliveryPipelineResult =
       detail?: string;
     }>;
 
+/** Extract actual FORWARDED event timestamps for each intermediate relay along the delivery route. */
+export function extractRelayForwardTimestampsFromEvents(
+  events: readonly LabEvent[],
+  deliveryRoute: readonly string[]
+): number[] {
+  const relays = deliveryRoute.slice(1, -1);
+  const times: number[] = [];
+  for (let i = 0; i < relays.length; i++) {
+    const relay = relays[i]!;
+    const next = deliveryRoute[i + 2]!;
+    const ev = events.find(
+      (e) => e.type === 'FORWARDED' && e.from === relay && e.to === next
+    );
+    if (!ev || ev.type !== 'FORWARDED') {
+      throw new Error(`MISSING_ROUTE_FORWARD_EVENT:${relay}->${next}`);
+    }
+    times.push(ev.atMs);
+  }
+  return times;
+}
+
 export function runSimulatedDeliveryPipeline(input: {
   simulationInput: OfflineSimulationInput;
   cpxEurPriceDecimal?: string;
   alreadyCountedNodePeriodRaw?: bigint;
+  alreadyCountedNodePeriodRawByRelay?: readonly bigint[];
   rewardReserveRawAtPeriodStart?: bigint;
   globalAlreadyPaidRaw?: bigint;
+  /** Override remaining global budget (raw). When set, skips pool derivation for relay allocation. */
+  globalRemainingRawOverride?: bigint;
   buildRelay?: boolean;
 }): SimulatedDeliveryPipelineResult {
   const simulation = runOfflineStoreCarryForward(input.simulationInput);
@@ -95,19 +126,38 @@ export function runSimulatedDeliveryPipeline(input: {
         bundle: DemoRelayEvidenceBundle;
         expectedSigners: readonly string[];
         verified: true;
+        perRelayPayableRaw: readonly bigint[];
+        totalPayableRaw: bigint;
+        forwardedAtMsByHop: readonly number[];
       }
     | undefined = undefined;
 
   if (input.buildRelay !== false && simulation.deliveryRoute.length >= 3) {
     const intermediates = simulation.deliveryRoute.length - 2;
     const hopSigners = Array.from({ length: intermediates }, () => generateDemoKeyPair());
-    const times = hopSigners.map((_, i) => (simulation.deliveryAtMs ?? 0) - (intermediates - i));
+    const times = extractRelayForwardTimestampsFromEvents(
+      simulation.events,
+      simulation.deliveryRoute
+    );
+    const globalRemainingRaw =
+      input.globalRemainingRawOverride !== undefined
+        ? input.globalRemainingRawOverride
+        : economy.globalRemainingRaw;
+    const countedByRelay =
+      input.alreadyCountedNodePeriodRawByRelay ??
+      Array.from({ length: intermediates }, () => input.alreadyCountedNodePeriodRaw ?? 0n);
+    const allocation = allocateSequentialRelayRewards({
+      relayCount: intermediates,
+      nominalRewardRaw: economy.nominalRelayRaw,
+      alreadyCountedNodePeriodRawByRelay: countedByRelay,
+      globalRemainingRaw,
+    });
     const built = buildRelayHopsFromDeliveryRoute({
       messageId: input.simulationInput.packet.packetId,
       deliveryRoute: simulation.deliveryRoute,
       hopSigners,
       forwardedAtMsByHop: times,
-      rewardRawDecimal: economy.actualPayableRaw.toString(),
+      rewardRawDecimalByHop: allocation.perRelayPayableRaw.map((r) => r.toString()),
     });
     const bundle = buildPagedRelayEvidence({
       messageId: input.simulationInput.packet.packetId,
@@ -135,6 +185,9 @@ export function runSimulatedDeliveryPipeline(input: {
       bundle,
       expectedSigners: built.expectedSignerPublicKeysB64,
       verified: true,
+      perRelayPayableRaw: allocation.perRelayPayableRaw,
+      totalPayableRaw: allocation.totalPayableRaw,
+      forwardedAtMsByHop: times,
     };
   }
 

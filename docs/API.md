@@ -30,21 +30,36 @@ All exports are available from `@meshsender/sdk` (`src/index.ts`).
 
 - `createDemoPublicPassport`, `verifyPublicPassport`, `createPassportVerifier`
 
-## Solana (`LIVE_READ_ONLY`)
+## Solana identifiers (browser-safe, no web3)
 
-- `CPX_MAINNET_MINT_ADDRESS`, `MESHSENDER_PROGRAM_ID`
-- `inspectCpxMint`, `inspectMeshProgram`, `inspectAddressBalance`, `inspectTransaction`
+- `CPX_MAINNET_MINT_ADDRESS`, `MESHSENDER_PROGRAM_ID`, `DEFAULT_MAINNET_RPC`, `SECONDARY_MAINNET_RPC`
+- Source: `src/solana/publicIdentifiers.ts` (dependency-free)
+
+## Solana JSON-RPC fetch (browser-safe)
+
+- `fetchInspectCpxMint`, `fetchInspectProgram`, `fetchInspectProgramDualRpc`
+
+## Solana Node helpers (`LIVE_READ_ONLY`, `@solana/web3.js`)
+
+- `inspectCpxMint`, `inspectMeshProgram`, `inspectCpxWalletBalances`, `inspectTransaction`
 - `liveMainnetSnapshot`, `createMainnetConnection`
+- Not included in the playground browser bundle
 
 ## Economy
 
 - `quoteDeliveryEconomy`
+- `simulatePayableRelayReward`, `allocateSequentialRelayRewards`
 - `offlineServiceBurnCpxRawFromEurPriceDecimal`
 - `nominalRelayRewardCpxRawFromEurPriceDecimal`
 - `nodeCapLimitedNominalRaw`, `globalPeriodPoolHardCapRaw`
 - `referralSplitRawExactOrFail`, `marketBurnRawExactOrFail`, `first5000Allocation`
 - `deriveCommonRewardPeriodId` (requires explicit genesis; DG1 open)
 - `applyHighConfidenceWeightOrBlock` (always blocks; DG3 open)
+
+## Pipeline
+
+- `runSimulatedDeliveryPipeline` — sequential per-relay budget; forward timestamps from simulation events
+- `extractRelayForwardTimestampsFromEvents`
 
 ## Paradox Market
 

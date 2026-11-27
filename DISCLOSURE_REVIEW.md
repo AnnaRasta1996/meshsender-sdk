@@ -26,7 +26,8 @@ Publish a hackathon-ready Open SDK that is impressive and executable without lea
 
 ## Residual risk
 
-- Browser playground mirrors algorithms in JS (allowlisted) — keep synced with `src/`
+- Browser playground loads generated `meshsender-sdk.bundle.js` from the same public SDK source (`browser-entry.ts`); no divergent handwritten algorithms
+- Browser bundle uses `publicIdentifiers` + `publicRpcFetch` only — never `@solana/web3.js` / Node require
 - Live RPC calls may be rate-limited; failures must be reported honestly
 - Owner must still approve MIT + exact allowlist before public GitHub publish
 

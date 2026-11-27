@@ -333,7 +333,8 @@ export function buildRelayHopsFromDeliveryRoute(input: {
   hopSigners: readonly DemoKeyPair[];
   forwardedAtMsByHop: readonly number[];
   ingressTransport?: string;
-  rewardRawDecimal: string;
+  /** Per-relay simulated payable raw decimal (sequential budget allocation). */
+  rewardRawDecimalByHop: readonly string[];
 }): { hops: DemoRelayHop[]; expectedSignerPublicKeysB64: string[] } {
   // Route: [sender, relay..., recipient]. Relays are intermediates only.
   if (input.deliveryRoute.length < 3) {
@@ -345,6 +346,9 @@ export function buildRelayHopsFromDeliveryRoute(input: {
   }
   if (relays.length !== input.forwardedAtMsByHop.length) {
     throw new Error('HOP_TIME_COUNT_MISMATCH');
+  }
+  if (relays.length !== input.rewardRawDecimalByHop.length) {
+    throw new Error('HOP_REWARD_COUNT_MISMATCH');
   }
   const hops: DemoRelayHop[] = [];
   const expectedSignerPublicKeysB64: string[] = [];
@@ -358,7 +362,7 @@ export function buildRelayHopsFromDeliveryRoute(input: {
         previousNodeId: input.deliveryRoute[i]!,
         forwardedAtMs: input.forwardedAtMsByHop[i]!,
         ingressTransport: input.ingressTransport ?? 'ble',
-        rewardRawDecimal: input.rewardRawDecimal,
+        rewardRawDecimal: input.rewardRawDecimalByHop[i]!,
       },
     });
     hops.push(hop);
