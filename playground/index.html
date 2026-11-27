@@ -37,19 +37,18 @@
           Footage from an <strong>earlier working Android development build</strong> — product context,
           not a claim of production LoRa, verified offline multi-hop routing, or completed Market settlement.
         </p>
-        <div class="video-frame-wrap" id="product-video-frame">
-          <p class="video-pending muted" id="product-video-pending">
-            YouTube embed awaits the final owner-provided watch URL.
+        <div class="video-frame-wrap video-frame-portrait" id="product-video-frame">
+          <p class="video-pending muted" id="product-video-pending" hidden>
+            Product video is temporarily unavailable.
           </p>
         </div>
         <p class="video-actions">
           <a
             id="product-video-watch"
             class="cta-secondary video-watch-link"
-            href="#"
+            href="https://www.youtube.com/watch?v=K9X8EYo6-CE"
             target="_blank"
             rel="noopener noreferrer"
-            hidden
             >Watch on YouTube</a
           >
           <a class="text-link" href="#video-walkthrough">English Video Walkthrough</a>
@@ -76,56 +75,62 @@
     </header>
 
     <section id="video-walkthrough" class="video-walkthrough" aria-labelledby="video-walkthrough-title">
-      <h2 id="video-walkthrough-title">English Video Walkthrough</h2>
-      <p class="walkthrough-intro">
-        What the Android prototype footage shows, and why each surface matters. Same verified narrative as
-        <a
-          href="https://github.com/AnnaRasta1996/meshsender-sdk/blob/main/docs/DEMO_VIDEO_GUIDE.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          >docs/DEMO_VIDEO_GUIDE.md</a
-        >. No invented timestamps.
-      </p>
-      <ul class="walkthrough-list">
-        <li>
-          <strong>Account registration and recovery</strong> — on-device onboarding so users can join and
-          restore access without treating centralized reset flows as the only path to sovereignty.
-        </li>
-        <li>
-          <strong>Internet messaging between two devices</strong> — when the network works, MeshSender still
-          carries normal conversations; offline-first does not mean offline-only.
-        </li>
-        <li>
-          <strong>Mesh Mode and offline communication</strong> — prototype UI for continuing when continuous
-          internet fails. Open SDK readiness: physical radios remain <span class="badge pending">PENDING</span>;
-          footage alone does not certify multi-hop routing or LoRa hardware.
-        </li>
-        <li>
-          <strong>Same-conversation close-up</strong> — a tighter view of the chat for readability on phone and
-          desktop screens.
-        </li>
-        <li>
-          <strong>Offline Map and network visualization</strong> — spatial context for nodes without depending on
-          live cloud map connectivity.
-        </li>
-        <li>
-          <strong>Integrated wallet and Phantom interface</strong> — Solana-oriented wallet UX in the prototype.
-          This Playground keeps economic gates <strong>OFF</strong> (no signing or spend).
-        </li>
-        <li>
-          <strong>CPX on Solana mainnet</strong> — Chaos Paradox is a real mainnet mint; the Playground can
-          live-read it. Production settlement execution is not claimed from the video.
-        </li>
-        <li>
-          <strong>Global vision</strong> — communication that survives outages, with an economy designed to reward
-          participation. The Interactive Playground below proves public-safe building blocks with explicit labels.
-        </li>
-        <li>
-          <strong>Android prototype → Open SDK</strong> — the film is the earlier product surface; this package is
-          the Hackathon Flagship Open SDK (simulated lab, synthetic proofs, non-spending economy quotes, live mint
-          inspection).
-        </li>
-      </ul>
+      <details class="walkthrough-details">
+        <summary id="video-walkthrough-title">English Video Walkthrough</summary>
+        <p class="walkthrough-intro">
+          What the Android prototype footage shows, and why each surface matters. Same verified narrative as
+          <a
+            href="https://github.com/AnnaRasta1996/meshsender-sdk/blob/main/docs/DEMO_VIDEO_GUIDE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            >docs/DEMO_VIDEO_GUIDE.md</a
+          >.
+          Watch:
+          <a href="https://www.youtube.com/watch?v=K9X8EYo6-CE" target="_blank" rel="noopener noreferrer"
+            >https://www.youtube.com/watch?v=K9X8EYo6-CE</a
+          >.
+        </p>
+        <ul class="walkthrough-list">
+          <li>
+            <strong>Account registration and recovery</strong> — on-device onboarding so users can join and
+            restore access without treating centralized reset flows as the only path to sovereignty.
+          </li>
+          <li>
+            <strong>Internet messaging between two devices</strong> — when the network works, MeshSender still
+            carries normal conversations; offline-first does not mean offline-only.
+          </li>
+          <li>
+            <strong>Mesh Mode and offline communication</strong> — prototype UI for continuing when continuous
+            internet fails. Open SDK readiness: physical radios remain <span class="badge pending">PENDING</span>;
+            footage alone does not certify multi-hop routing or LoRa hardware.
+          </li>
+          <li>
+            <strong>Same-conversation close-up</strong> — a tighter view of the chat for improved readability on
+            phone and desktop screens.
+          </li>
+          <li>
+            <strong>Offline Map and network visualization</strong> — spatial context for nodes without depending on
+            live cloud map connectivity.
+          </li>
+          <li>
+            <strong>Integrated wallet and Phantom interface</strong> — Solana-oriented wallet UX in the prototype.
+            This Playground keeps economic gates <strong>OFF</strong> (no signing or spend).
+          </li>
+          <li>
+            <strong>CPX on Solana mainnet</strong> — Chaos Paradox is a real mainnet mint; the Playground can
+            live-read it. Production settlement execution is not claimed from the video.
+          </li>
+          <li>
+            <strong>Global vision</strong> — communication that survives outages, with an economy designed to reward
+            participation. The Interactive Playground below proves public-safe building blocks with explicit labels.
+          </li>
+          <li>
+            <strong>Android prototype → Open SDK</strong> — the film is the earlier product surface; this package is
+            the Hackathon Flagship Open SDK (simulated lab, synthetic proofs, non-spending economy quotes, live mint
+            inspection).
+          </li>
+        </ul>
+      </details>
     </section>
 
     <section id="guided" class="guided" hidden>
@@ -285,10 +290,11 @@
 
     <footer>
       CPX mint <code>9s3Cc…</code> and settlement program <code>GSRFUJ…</code> are separate.
-      MIT proposed for SDK only. Repository remains <strong>PRIVATE</strong>.
-      GitHub Pages: workflow prepared (manual dispatch + owner-gated deploy); public publication
-      <strong>BLOCKED</strong> until explicit owner approval after independent review.
-      Physical radios / production settlement / U54F8: PENDING.
+      MIT proposed for <strong>this Open SDK package only</strong>. This repository is
+      <strong>PUBLIC</strong>; private MeshSender product source remains private and is not licensed here.
+      GitHub Pages is live; future deploys stay manual (`pages-manual-gated`,
+      <code>owner_approve_deploy</code>). Physical radios / production settlement / U54F8: PENDING.
+      Economic gates: OFF.
     </footer>
 
     <script src="./product-video-config.js"></script>

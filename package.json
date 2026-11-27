@@ -4,6 +4,14 @@
   "description": "MeshSender Open SDK — Hackathon Flagship Edition (public-safe modules)",
   "license": "MIT",
   "private": true,
+  "homepage": "https://annarasta1996.github.io/meshsender-sdk/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnnaRasta1996/meshsender-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AnnaRasta1996/meshsender-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

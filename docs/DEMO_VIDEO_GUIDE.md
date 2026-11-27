@@ -1,13 +1,14 @@
 # MeshSender — English Video Walkthrough
 
-This guide describes the **real Android prototype footage** featured in the Open SDK presentation. The recording shows an **earlier working Android development build**. It is product context for judges and contributors — not a substitute for the Interactive Playground’s labeled readiness (`SIMULATED` / `VERIFIED_SYNTHETIC` / `LIVE_READ_ONLY` / `PENDING`).
+This guide describes the **real Android prototype footage** featured in the Open SDK presentation. The recording shows an **earlier working Android development build** (vertical Short). It is product context for judges and contributors — not a substitute for the Interactive Playground’s labeled readiness (`SIMULATED` / `VERIFIED_SYNTHETIC` / `LIVE_READ_ONLY` / `PENDING`).
 
 ## Watch
 
-- **YouTube:** *pending final owner-provided URL* (set `playground/product-video-config.js` → `youtubeWatchUrl`)
+- **YouTube:** [https://www.youtube.com/watch?v=K9X8EYo6-CE](https://www.youtube.com/watch?v=K9X8EYo6-CE)
+- **Shorts link:** [https://youtube.com/shorts/K9X8EYo6-CE](https://youtube.com/shorts/K9X8EYo6-CE)
 - **Interactive Playground:** [https://annarasta1996.github.io/meshsender-sdk/](https://annarasta1996.github.io/meshsender-sdk/)
 
-Timestamps are omitted until the owner supplies verified timestamps for the final uploaded video. **Do not invent chapter times.**
+No chapter timestamps are listed here. **Do not invent chapter times.**
 
 ## What the footage demonstrates
 
@@ -72,6 +73,6 @@ The footage is **not** a claim that Market payments completed in production, tha
 
 ## Related links
 
-- Playground Video Walkthrough section (same narrative, on-page)  
+- Playground Video Walkthrough section (collapsible, same narrative)  
 - `README.md` — Video · Walkthrough · Interactive Playground  
 - Live CPX mint inspection in the Playground (read-only)

@@ -1237,7 +1237,15 @@ async function runDevSolana(includeSnapshot) {
 document.getElementById('btn-solana').onclick = () => runDevSolana(false);
 document.getElementById('btn-solana-snap').onclick = () => runDevSolana(true);
 
-/** Parse YouTube watch / youtu.be / embed URLs → video id. Returns null if invalid. */
+/** Strict YouTube video id: exactly 11 URL-safe characters. */
+function isStrictYoutubeVideoId(id) {
+  return typeof id === 'string' && /^[\w-]{11}$/.test(id);
+}
+
+/**
+ * Parse YouTube watch / Shorts / youtu.be / embed URLs → video id.
+ * Returns null if invalid. Exported on window for focused tests.
+ */
 function youtubeVideoIdFromUrl(raw) {
   if (!raw || typeof raw !== 'string') return null;
   const trimmed = raw.trim();
@@ -1247,15 +1255,16 @@ function youtubeVideoIdFromUrl(raw) {
     const host = u.hostname.replace(/^www\./, '');
     if (host === 'youtu.be') {
       const id = u.pathname.split('/').filter(Boolean)[0];
-      return id && /^[\w-]{6,}$/.test(id) ? id : null;
+      return isStrictYoutubeVideoId(id) ? id : null;
     }
     if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
-      if (u.pathname.startsWith('/embed/')) {
-        const id = u.pathname.split('/')[2];
-        return id && /^[\w-]{6,}$/.test(id) ? id : null;
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live') {
+        const id = parts[1];
+        return isStrictYoutubeVideoId(id) ? id : null;
       }
       const v = u.searchParams.get('v');
-      return v && /^[\w-]{6,}$/.test(v) ? v : null;
+      return isStrictYoutubeVideoId(v) ? v : null;
     }
   } catch {
     return null;
@@ -1274,27 +1283,26 @@ function mountProductVideo() {
   if (!id || !watchUrl) {
     if (pending) {
       pending.hidden = false;
-      pending.textContent =
-        'YouTube embed awaits the final owner-provided watch URL (set playground/product-video-config.js).';
+      pending.textContent = 'Product video is temporarily unavailable.';
     }
     if (watchLink) watchLink.hidden = true;
     return;
   }
   if (pending) pending.hidden = true;
+  const canonicalWatch = `https://www.youtube.com/watch?v=${id}`;
   if (watchLink) {
     watchLink.hidden = false;
-    watchLink.href = watchUrl.startsWith('http')
-      ? watchUrl
-      : `https://www.youtube.com/watch?v=${id}`;
+    watchLink.href = canonicalWatch;
   }
+  const portrait = cfg.orientation === 'portrait';
   // Lazy-loaded, no autoplay. privacy-enhanced domain.
   frame.innerHTML = `
-    <div class="video-aspect">
+    <div class="video-aspect${portrait ? ' video-aspect-portrait' : ''}">
       <iframe
         loading="lazy"
         title="${text(cfg.embedTitle || 'MeshSender product video')}"
         src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0"
-        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen
       ></iframe>
@@ -1302,5 +1310,6 @@ function mountProductVideo() {
   `;
 }
 
+window.youtubeVideoIdFromUrl = youtubeVideoIdFromUrl;
 mountProductVideo();
 

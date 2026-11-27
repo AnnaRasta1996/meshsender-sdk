@@ -1,6 +1,8 @@
 # Publication allowlist (exact)
 
-Owner must approve this list + MIT before any **public** open.
+Allowlist for this **public** Open SDK repository. MIT proposed for **this SDK package only**.
+Private MeshSender product source is **not** covered and must stay out of this tree.
+Future GitHub Pages redeploys still require owner `owner_approve_deploy`.
 
 ## Allowed
 

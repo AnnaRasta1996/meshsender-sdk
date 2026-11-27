@@ -6,11 +6,11 @@ Public-safe TypeScript SDK for **MeshSender** / **Chaos Paradox (CPX)**.
 
 | Link | What |
 |---|---|
-| **Product video** | [See MeshSender in Action — Real Android Prototype](https://annarasta1996.github.io/meshsender-sdk/#product-video) (YouTube embed; final watch URL set by owner in `playground/product-video-config.js`) |
+| **Product video (YouTube)** | [https://www.youtube.com/watch?v=K9X8EYo6-CE](https://www.youtube.com/watch?v=K9X8EYo6-CE) — *See MeshSender in Action — Real Android Prototype* |
 | **English walkthrough** | [docs/DEMO_VIDEO_GUIDE.md](./docs/DEMO_VIDEO_GUIDE.md) |
 | **Interactive Playground** | [https://annarasta1996.github.io/meshsender-sdk/](https://annarasta1996.github.io/meshsender-sdk/) |
 
-Footage is an **earlier working Android development build**. The Playground keeps Guided Demo and Developer Mode fully functional with explicit readiness labels. Economic gates remain **OFF**.
+Footage is an **earlier working Android development build** (vertical Short). The Playground embeds the same video above Guided Demo / Developer Mode, with a collapsible English walkthrough. Economic gates remain **OFF**.
 
 ## Product vision (preserved)
 
@@ -111,7 +111,9 @@ npm run playground:interact   # page + SDK flow checks
 npm run bundle:startup        # browser-sandbox bundle boot
 ```
 
-## GitHub Pages (prepared; deploy gated)
+## GitHub Pages
+
+Live playground: [https://annarasta1996.github.io/meshsender-sdk/](https://annarasta1996.github.io/meshsender-sdk/)
 
 Workflow: `.github/workflows/pages.yml` (`pages-manual-gated`).
 
@@ -119,26 +121,17 @@ Workflow: `.github/workflows/pages.yml` (`pages-manual-gated`).
 - Job `prepare`: builds browser bundle and uploads **allowlisted `playground/`** artifact only.
 - Job `deploy`: official `actions/deploy-pages` — runs **only** when input `owner_approve_deploy=true`.
 - Default input is `false` → prepare artifact without publishing.
-
-### Activation instructions (owner only, after independent review)
-
-1. Confirm `PUBLICATION_ALLOWLIST.md` + MIT for **this SDK package only**.
-2. Keep the repository **PRIVATE** until you explicitly approve a public open.
-3. In GitHub Settings → Pages: set Source to **GitHub Actions** (only when you intend to publish).
-4. Actions → **pages-manual-gated** → Run workflow:
-   - Leave `owner_approve_deploy` **false** to prepare/upload artifact without deploy.
-   - Set `owner_approve_deploy` **true** only with explicit owner approval to deploy.
-5. Public open remains **BLOCKED** until that explicit approval. This unit does not publish.
+- **Future Pages deploys still require explicit owner approval** via `owner_approve_deploy`.
 
 ## Release status (current)
 
-- Repository visibility: **PRIVATE**
-- Public GitHub Pages publication: **BLOCKED** (owner approval required)
+- Repository visibility: **PUBLIC** (https://github.com/AnnaRasta1996/meshsender-sdk)
+- GitHub Pages: **live** (manual owner-gated redeploys)
+- npm: package marked `"private": true` — **not** published to the npm registry
 - Economic gates: **OFF** (no signing / spend / settlement deploy)
-- MIT: proposed for **SDK only** (not private product source)
+- MIT: proposed for **this Open SDK package only** (private product source is not licensed by this file)
 
 ## License
 
 **MIT proposed for this Open SDK package only.**  
-Private MeshSender / `secure-mesh-chat` product source is not licensed by this file.  
-Repository must remain **PRIVATE** until explicit owner approval.
+Private MeshSender / `secure-mesh-chat` product source remains private and is not licensed by this file.

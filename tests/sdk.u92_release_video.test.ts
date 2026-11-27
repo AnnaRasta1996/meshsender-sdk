@@ -3,51 +3,75 @@ import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-describe('U92_RELEASE product video & English walkthrough', () => {
-  it('playground video section above CTAs; walkthrough; lazy embed helper; no MP4', () => {
+/** Load youtubeVideoIdFromUrl from playground/app.js without browser DOM side effects. */
+function loadYoutubeParser() {
+  const app = readFileSync(path.join(root, 'playground', 'app.js'), 'utf8');
+  const start = app.indexOf('function isStrictYoutubeVideoId');
+  const end = app.indexOf('function mountProductVideo');
+  assert.ok(start > 0 && end > start);
+  const snippet = app.slice(start, end) + '\nthis.youtubeVideoIdFromUrl = youtubeVideoIdFromUrl;\n';
+  const sandbox = { console, URL };
+  vm.runInNewContext(snippet, sandbox);
+  return sandbox.youtubeVideoIdFromUrl;
+}
+
+describe('U92_RELEASE_VIDEO_F1 final YouTube integration', () => {
+  it('F01: config + Shorts/watch parse + portrait embed + no MP4', () => {
+    const cfg = readFileSync(path.join(root, 'playground', 'product-video-config.js'), 'utf8');
     const html = readFileSync(path.join(root, 'playground', 'index.html'), 'utf8');
     const app = readFileSync(path.join(root, 'playground', 'app.js'), 'utf8');
-    const cfg = readFileSync(path.join(root, 'playground', 'product-video-config.js'), 'utf8');
     const css = readFileSync(path.join(root, 'playground', 'styles.css'), 'utf8');
-    assert.match(html, /See MeshSender in Action — Real Android Prototype/);
-    assert.match(html, /id="product-video"/);
-    assert.match(html, /earlier working Android development build/i);
-    assert.match(html, /id="video-walkthrough"/);
-    assert.match(html, /English Video Walkthrough/);
-    assert.match(html, /product-video-config\.js/);
-    const videoIdx = html.indexOf('id="product-video"');
-    const guidedBtn = html.indexOf('id="btn-guided"');
-    const guidedSection = html.indexOf('id="guided"');
-    assert.ok(videoIdx > 0 && guidedBtn > videoIdx, 'video section above Guided Demo button');
-    assert.ok(guidedSection > guidedBtn, 'guided panel remains after CTAs');
-    assert.match(app, /mountProductVideo/);
-    assert.match(app, /youtube-nocookie\.com\/embed/);
+    assert.match(cfg, /youtubeWatchUrl:\s*'https:\/\/www\.youtube\.com\/watch\?v=K9X8EYo6-CE'/);
+    assert.match(cfg, /orientation:\s*'portrait'/);
+    assert.equal(cfg.includes('.mp4'), false);
+
+    const parse = loadYoutubeParser();
+    assert.equal(parse('https://www.youtube.com/watch?v=K9X8EYo6-CE'), 'K9X8EYo6-CE');
+    assert.equal(parse('https://youtube.com/shorts/K9X8EYo6-CE'), 'K9X8EYo6-CE');
+    assert.equal(parse('https://youtu.be/K9X8EYo6-CE'), 'K9X8EYo6-CE');
+    assert.equal(parse('https://www.youtube.com/embed/K9X8EYo6-CE'), 'K9X8EYo6-CE');
+    assert.equal(parse('https://youtube.com/shorts/SHORT'), null);
+    assert.equal(parse('https://www.youtube.com/watch?v=toolongvideoidx'), null);
+
+    assert.match(app, /youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(id\)\}\?rel=0/);
     assert.match(app, /loading="lazy"/);
     assert.equal(app.includes('autoplay=1'), false);
-    assert.match(cfg, /youtubeWatchUrl/);
-    assert.match(css, /\.video-aspect/);
-    assert.match(css, /\.product-video/);
+    assert.match(app, /parts\[0\] === 'shorts'/);
+    assert.match(app, /\^\[\\w-\]\{11\}\$/);
+    assert.match(css, /video-aspect-portrait/);
+    assert.match(css, /aspect-ratio:\s*9\s*\/\s*16/);
+    assert.match(html, /watch\?v=K9X8EYo6-CE/);
+    assert.match(html, /walkthrough-details/);
+    assert.match(html, /Same-conversation close-up/);
+    assert.equal(html.includes('Repository remains <strong>PRIVATE</strong>'), false);
+    assert.equal(html.includes('public publication\n      <strong>BLOCKED</strong>'), false);
+    assert.match(html, /This repository is\s*<strong>PUBLIC<\/strong>/);
   });
 
-  it('docs guide + README links + allowlist; no invented timestamps file claim', () => {
+  it('F02/F03: docs/README/package public metadata; private npm; no pending URL copy', () => {
     const guide = readFileSync(path.join(root, 'docs', 'DEMO_VIDEO_GUIDE.md'), 'utf8');
     const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
+    const disclosure = readFileSync(path.join(root, 'DISCLOSURE_REVIEW.md'), 'utf8');
     const allow = readFileSync(path.join(root, 'PUBLICATION_ALLOWLIST.md'), 'utf8');
-    assert.match(guide, /Account registration and recovery/);
-    assert.match(guide, /Mesh Mode/);
-    assert.match(guide, /Offline Map/);
-    assert.match(guide, /Phantom/);
-    assert.match(guide, /CPX on Solana mainnet/);
-    assert.match(guide, /Do not invent chapter times/i);
-    assert.match(guide, /does \*\*not\*\* claim independently verified offline multi-hop/i);
-    assert.match(readme, /DEMO_VIDEO_GUIDE\.md/);
-    assert.match(readme, /annarasta1996\.github\.io\/meshsender-sdk/);
-    assert.match(readme, /#product-video/);
-    assert.match(allow, /DEMO_VIDEO_GUIDE\.md/);
-    assert.match(allow, /product-video-config\.js/);
-    assert.match(allow, /no MP4/);
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+
+    assert.match(guide, /https:\/\/www\.youtube\.com\/watch\?v=K9X8EYo6-CE/);
+    assert.equal(guide.includes('pending final owner-provided'), false);
+    assert.equal(guide.includes('product-video-config.js'), false);
+    assert.match(guide, /Same-conversation close-up/);
+    assert.match(readme, /https:\/\/www\.youtube\.com\/watch\?v=K9X8EYo6-CE/);
+    assert.match(readme, /Repository visibility: \*\*PUBLIC\*\*/);
+    assert.equal(readme.includes('Repository visibility: **PRIVATE**'), false);
+    assert.equal(readme.includes('Public GitHub Pages publication: **BLOCKED**'), false);
+    assert.match(disclosure, /repository is \*\*PUBLIC\*\*/);
+    assert.match(disclosure, /owner_approve_deploy/);
+    assert.match(allow, /public\*\* Open SDK/);
+    assert.equal(pkg.private, true);
+    assert.equal(pkg.homepage, 'https://annarasta1996.github.io/meshsender-sdk/');
+    assert.equal(pkg.repository.url, 'git+https://github.com/AnnaRasta1996/meshsender-sdk.git');
   });
 });

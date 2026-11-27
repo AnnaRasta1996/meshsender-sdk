@@ -29,14 +29,17 @@ Publish a hackathon-ready Open SDK that is impressive and executable without lea
 - Browser playground loads generated `meshsender-sdk.bundle.js` from the same public SDK source (`browser-entry.ts`); no divergent handwritten algorithms
 - Browser bundle uses `publicIdentifiers` + `publicRpcFetch` only — never `@solana/web3.js` / Node require
 - Live RPC calls may be rate-limited; failures must be reported honestly
-- Owner must still approve MIT + exact allowlist before public GitHub publish
+- MIT + allowlist apply to **this Open SDK package only** — do not expand license scope to private product source
 
 ## Pages workflow
 
 `.github/workflows/pages.yml` prepares the allowlisted `playground/` artifact on manual dispatch.
 Deploy uses official `actions/deploy-pages` only when workflow input `owner_approve_deploy=true`.
-Default remains prepare-only. Public open stays blocked without explicit owner approval.
+Default remains prepare-only. **Future Pages redeploys still require explicit owner approval.**
 
-## Decision gate
+## Publication status
 
-**DO NOT PUBLISH PUBLICLY until owner approves exact files and license after independent review.**
+- This Open SDK repository is **PUBLIC**.
+- Private MeshSender / `secure-mesh-chat` product source remains **PRIVATE** and is not published here.
+- npm package remains `"private": true` (no npm registry publication).
+- Economic gates remain **OFF**.
