@@ -49,6 +49,18 @@ The build surfaces wallet integration with a Phantom-oriented interface for Sola
 Chaos Paradox (**CPX**) is the project token on Solana mainnet. The Open SDK can **live-read** the public mint (`9s3CcNwhvPKWi1i5hJSQgRLDrmjQXAkQgRsrDkgiEb6X`) separately from any settlement program account.  
 **Why it matters:** Viewers should understand that CPX is a real on-chain mint, while **production settlement / paid-mesh writes** remain gated and are **not** executed by this Open SDK package.
 
+### Existing Solana Mainnet Infrastructure
+
+Before this hackathon package, the project already established **mainnet** CPX infrastructure: a live SPL mint and a **Squads Protocol V4** multisig Treasury (historical funding on the order of ~150B CPX). The Reward Reserve is a **separate** allocation from Treasury. Exact Treasury / Reserve / founder / security / liquidity / admin addresses remain in the **private product** and are **not** published in this Open SDK (`PUBLICATION_ALLOWLIST` / `DISCLOSURE_REVIEW`).
+
+| Existing mainnet infrastructure (pre-hackathon) | This Open SDK / Playground demo |
+|---|---|
+| Live CPX mint + Squads-based Treasury (private product references) | Live **read-only** mint inspection; simulated economy / proofs |
+| Custom settlement program work lives in private product | Declared program ID may be inspected; **not** treated as live settlement execution |
+| Production paid-mesh / automatic economic settlement | **OFF** (economic gates OFF) |
+
+This guide does **not** claim native Squads transaction integration, Seed Vault integration, or live settlement from the footage or the Playground.
+
 ### Global communication and economic vision
 
 Together, messaging + mesh + wallet + CPX point at a single vision: communication that survives internet failure, with an economy that rewards participation (Reward Reserve–funded relay concepts; Paradox Market peer payments with zero platform fee in the product rules).  

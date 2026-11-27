@@ -36,6 +36,20 @@ These are **different** on-chain objects:
 
 The mint is the token. The program ID is a separate executable account (may be not found / not executable on a given cluster). The SDK never confuses them and never deploys.
 
+## Existing Solana Mainnet Infrastructure
+
+Chaos Paradox (**CPX**) already has **real Solana mainnet infrastructure established before this hackathon** — separate from what the Open SDK demonstrates today.
+
+| Layer | Status |
+|---|---|
+| **CPX SPL mint** | Live on Solana mainnet (public mint address above; Open SDK can live-read it) |
+| **Squads-based multisig Treasury** | Existing project Treasury infrastructure on Solana mainnet (Squads Protocol V4). Historical funding on the order of **~150B CPX**. Reward Reserve is a **separate** allocation from Treasury. Exact Treasury / Reserve / member / admin addresses stay in the **private product** configuration and are **not** published in this Open SDK |
+| **Custom mesh settlement program** | Declared program ID above — **implementation / deploy not treated as live executable settlement** in this Open SDK. The Playground may inspect the account read-only |
+| **This Open SDK + hackathon Playground** | Deterministic labs, synthetic proofs, non-spending economy quotes, live mint inspection — **not** native Squads transaction integration, **not** Seed Vault integration, **not** automatic economic settlement |
+| **Production paid-mesh / settlement execution** | **OFF** (economic gates OFF) |
+
+Do **not** read this section as a claim that the Open SDK signs Squads vault transactions, runs Seed Vault flows, or executes live settlement. Wallet addresses and explorer links that would disclose private treasury/reserve identities are intentionally omitted pending separate disclosure approval (`PUBLICATION_ALLOWLIST` / `DISCLOSURE_REVIEW`).
+
 ## Pending production features
 
 - Physical BLE / Wi-Fi Direct / LoRa adapters

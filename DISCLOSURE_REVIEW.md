@@ -19,9 +19,11 @@ Publish a hackathon-ready Open SDK that is impressive and executable without lea
 | Delivery proof wire | Not approved for production format export | Illustrative demo protocol |
 | Relay commitment domains | Not approved for production format export | Illustrative demo protocol |
 | Solana mint/program | Public | Exported |
-| Reserve/founder/treasury wallets | Private labels | **Not exported** |
+| Existing Squads V4 multisig Treasury (fact of existence / ~150B historical funding class) | Public narrative only | Documented in README / Playground / walkthrough — **no addresses, members, or treasury tx links** |
+| Reserve/founder/treasury/admin wallets | Private labels | **Not exported** (allowlist) |
 | Auth / recovery / Keychain | Private | **Not exported** |
 | Settlement execution | Private / gated OFF | **Blocked in SDK** |
+| Native Squads tx integration / Seed Vault | Not claimed in Open SDK | **Not exported / not claimed** |
 | Anti-fraud internals | Private | **Not exported** |
 
 ## Residual risk
