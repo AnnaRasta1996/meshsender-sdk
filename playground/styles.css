@@ -275,6 +275,30 @@ input, select {
 .warn { color: var(--gold); }
 .muted { color: var(--muted); }
 
+.scenario-tag {
+  margin: 10px 0 0;
+  color: var(--gold);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+.cpx-summary {
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.cpx-summary.ok { border-color: rgba(61, 214, 140, 0.35); }
+.cpx-summary.warn { border-color: rgba(224, 161, 6, 0.4); }
+.cpx-summary.bad { border-color: rgba(239, 106, 106, 0.45); }
+.cpx-summary a { color: var(--accent); }
+label input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
 footer {
   max-width: 1120px;
   margin: 28px auto 0;

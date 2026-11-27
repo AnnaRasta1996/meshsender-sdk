@@ -53,18 +53,41 @@ export type BilateralSignatures = Readonly<{
 export type MarketPaymentQuote = Readonly<{
   readiness: typeof ECONOMY_READINESS;
   category: MarketCategory;
+  exampleLabel: string;
   principalRaw: bigint;
   principalCpx: string;
   recipientReceivesRaw: bigint;
   recipientReceivesCpx: string;
   buyerExtraBurnRaw: bigint;
   buyerExtraBurnCpx: string;
+  buyerExtraBurnRate: '0.10%';
   buyerTotalRaw: bigint;
   buyerTotalCpx: string;
   platformCommission: typeof PLATFORM_FEE;
   custodialEscrow: false;
+  solFeesRentSeparateSubjectToApproval: true;
+  housingRentRemainsEur: boolean;
   marketplaceOperationalClaim: 'NOT_CLAIMED_UNFINISHED_FEATURES_PENDING';
 }>;
+
+const CATEGORY_EXAMPLES: Record<
+  MarketCategory,
+  { exampleLabel: string; housingRentRemainsEur: boolean }
+> = {
+  product: {
+    exampleLabel: 'Product example — peer goods sale (full principal to seller)',
+    housingRentRemainsEur: false,
+  },
+  service: {
+    exampleLabel: 'Service example — peer work/service payment (full principal to provider)',
+    housingRentRemainsEur: false,
+  },
+  housing_guarantee: {
+    exampleLabel:
+      'Housing guarantee example — CPX guarantee only; ordinary rent remains EUR outside MeshSender',
+    housingRentRemainsEur: true,
+  },
+};
 
 function canonicalAgreementJson(draft: MarketAgreementDraft): string {
   return [
@@ -161,19 +184,24 @@ export function quoteDirectMarketPayment(input: {
   const principalRaw = converted.raw;
   const burnRaw = marketBurnRawExactOrFail(principalRaw);
   const total = principalRaw + burnRaw;
+  const cat = CATEGORY_EXAMPLES[input.category];
   return {
     readiness: ECONOMY_READINESS,
     category: input.category,
+    exampleLabel: cat.exampleLabel,
     principalRaw,
     principalCpx: rawToCpxDecimal(principalRaw),
     recipientReceivesRaw: principalRaw,
     recipientReceivesCpx: rawToCpxDecimal(principalRaw),
     buyerExtraBurnRaw: burnRaw,
     buyerExtraBurnCpx: rawToCpxDecimal(burnRaw),
+    buyerExtraBurnRate: '0.10%',
     buyerTotalRaw: total,
     buyerTotalCpx: rawToCpxDecimal(total),
     platformCommission: PLATFORM_FEE,
     custodialEscrow: false,
+    solFeesRentSeparateSubjectToApproval: true,
+    housingRentRemainsEur: cat.housingRentRemainsEur,
     marketplaceOperationalClaim: 'NOT_CLAIMED_UNFINISHED_FEATURES_PENDING',
   };
 }

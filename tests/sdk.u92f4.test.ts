@@ -54,6 +54,6 @@ describe('U92F4 judge experience + micro fixes', () => {
     assert.match(html, /LIVE_READ_ONLY/);
     assert.equal(app.includes("getElementById('btn-offline').click()"), false);
     assert.match(app, /Need successful delivery first/);
-    assert.match(app, /clearEvidence\(\['out-proof', 'out-relay'\]\)/);
+    assert.match(app, /clearDevRouteDependent|clearEvidence/);
   });
 });

@@ -29,6 +29,15 @@ export const FIRST5000_TOTAL_RAW = 500_000n * CPX_RAW_SCALE;
 export const REWARD_PERIOD_DURATION_MS = 30n * 24n * 60n * 60n * 1000n;
 export const DG2_RULE = 'nearest_representable_6_decimals_ties_round_up' as const;
 export const PLATFORM_FEE = 0 as const;
+/** Master Guide: Internet messaging and receiving are free (0 CPX). */
+export const ONLINE_MESSAGING_CPX_RAW = 0n;
+export const ONLINE_RECEIVING_CPX_RAW = 0n;
+/** Master Guide: normal wallet→wallet app burn is 0; only real SOL fees/rent. */
+export const WALLET_TO_WALLET_APP_BURN_RAW = 0n;
+/** DG10: relay node pays 0 SOL; sender-approved SOL fees/rent are separate. */
+export const RELAY_SOL_EXPENSE = 0 as const;
+export const ECONOMY_SIMULATION_DISCLAIMER =
+  'HYPOTHETICAL_SIMULATION_INPUTS_NOT_LIVE_PRICING_OR_PAYOUT' as const;
 
 export type ExactRational = Readonly<{ numerator: bigint; denominator: bigint }>;
 export type DivRem = Readonly<{
@@ -204,6 +213,122 @@ export function referralSplitRawExactOrFail(actualRewardRaw: bigint): {
   return { referrerRaw: rem.quotient, relayRaw: actualRewardRaw - rem.quotient };
 }
 
+export type ReferralEligibility = Readonly<{
+  /** Explicit opt-in. Never invent automatic referral. */
+  hasValidReferralRelationship: boolean;
+  /** Valid referred-node count for this referrer (max 5). */
+  validReferredCountForReferrer?: number;
+}>;
+
+export type ReferralQuoteResult =
+  | Readonly<{
+      applied: true;
+      levels: 1;
+      referrerRaw: bigint;
+      relayRaw: bigint;
+      maxValidReferrals: typeof REFERRAL_MAX_EDGES;
+      countsInsideUnifiedNodeCap: true;
+    }>
+  | Readonly<{
+      applied: false;
+      reason:
+        | 'NO_AUTOMATIC_REFERRAL'
+        | 'REFERRAL_NOT_ELIGIBLE'
+        | 'REFERRAL_MAX_EDGES_EXCEEDED'
+        | 'REFERRAL_COUNT_INVALID'
+        | string;
+      referrerRaw: 0n;
+      relayRaw: bigint;
+    }>;
+
+/**
+ * Conditional eligible referral only (97/3, one level, max five).
+ * No automatic referral. Inexact or unresolved allocation → blocked.
+ */
+export function conditionalReferralSplit(input: {
+  actualPayableRaw: bigint;
+  eligibility?: ReferralEligibility;
+}): ReferralQuoteResult {
+  assertNonNegative(input.actualPayableRaw, 'actualPayableRaw');
+  const eligible = input.eligibility;
+  if (!eligible || !eligible.hasValidReferralRelationship) {
+    return {
+      applied: false,
+      reason: eligible ? 'REFERRAL_NOT_ELIGIBLE' : 'NO_AUTOMATIC_REFERRAL',
+      referrerRaw: 0n,
+      relayRaw: input.actualPayableRaw,
+    };
+  }
+  const count = eligible.validReferredCountForReferrer;
+  if (count === undefined || !Number.isInteger(count) || count < 1) {
+    return {
+      applied: false,
+      reason: 'REFERRAL_COUNT_INVALID',
+      referrerRaw: 0n,
+      relayRaw: input.actualPayableRaw,
+    };
+  }
+  if (count > REFERRAL_MAX_EDGES) {
+    return {
+      applied: false,
+      reason: 'REFERRAL_MAX_EDGES_EXCEEDED',
+      referrerRaw: 0n,
+      relayRaw: input.actualPayableRaw,
+    };
+  }
+  try {
+    const split = referralSplitRawExactOrFail(input.actualPayableRaw);
+    return {
+      applied: true,
+      levels: 1,
+      referrerRaw: split.referrerRaw,
+      relayRaw: split.relayRaw,
+      maxValidReferrals: REFERRAL_MAX_EDGES,
+      countsInsideUnifiedNodeCap: true,
+    };
+  } catch (e) {
+    return {
+      applied: false,
+      reason: e instanceof Error ? e.message : String(e),
+      referrerRaw: 0n,
+      relayRaw: input.actualPayableRaw,
+    };
+  }
+}
+
+/** Failed/expired delivery: zero service burn and zero relay rewards. */
+export function quoteFailedOfflineDeliveryEconomy(): {
+  readiness: typeof ECONOMY_READINESS;
+  offlineBurnRaw: 0n;
+  offlineBurnCpx: string;
+  totalRelayPayableRaw: 0n;
+  perRelayPayableRaw: readonly [];
+  referral: ReferralQuoteResult;
+  simulationDisclaimer: typeof ECONOMY_SIMULATION_DISCLAIMER;
+  reason: 'FAILED_OR_EXPIRED_DELIVERY_ZERO_BURN_ZERO_REWARDS';
+} {
+  return {
+    readiness: ECONOMY_READINESS,
+    offlineBurnRaw: 0n,
+    offlineBurnCpx: rawToCpxDecimal(0n),
+    totalRelayPayableRaw: 0n,
+    perRelayPayableRaw: [],
+    referral: {
+      applied: false,
+      reason: 'NO_AUTOMATIC_REFERRAL',
+      referrerRaw: 0n,
+      relayRaw: 0n,
+    },
+    simulationDisclaimer: ECONOMY_SIMULATION_DISCLAIMER,
+    reason: 'FAILED_OR_EXPIRED_DELIVERY_ZERO_BURN_ZERO_REWARDS',
+  };
+}
+
+export function walletToWalletAppBurnRaw(principalCpxRaw: bigint): typeof WALLET_TO_WALLET_APP_BURN_RAW {
+  assertNonNegative(principalCpxRaw, 'principalCpxRaw');
+  return WALLET_TO_WALLET_APP_BURN_RAW;
+}
+
 export function marketBurnRawExactOrFail(principalCpxRaw: bigint): bigint {
   assertNonNegative(principalCpxRaw, 'principalCpxRaw');
   const rem = divRem(principalCpxRaw * MARKET_BURN_NUMERATOR, MARKET_BURN_DENOMINATOR);
@@ -256,14 +381,28 @@ export function applyHighConfidenceWeightOrBlock(_input: {
 export type EconomyQuoteBundle = Readonly<{
   readiness: typeof ECONOMY_READINESS;
   cpxEurPrice: string;
+  simulationDisclaimer: typeof ECONOMY_SIMULATION_DISCLAIMER;
+  onlineMessagingCpxRaw: typeof ONLINE_MESSAGING_CPX_RAW;
+  onlineReceivingCpxRaw: typeof ONLINE_RECEIVING_CPX_RAW;
+  offlineBurnEurTarget: typeof OFFLINE_SERVICE_BURN_EUR;
   offlineBurnRaw: bigint;
   offlineBurnCpx: string;
+  nominalRelayEurTarget: typeof RELAY_REWARD_EUR_TARGET;
   nominalRelayRaw: bigint;
   nominalRelayCpx: string;
+  nominalRelayFormula: 'min(1_CPX, EUR_0.005 / settlement_price)';
+  rewardSource: 'REWARD_RESERVE';
+  senderFundsRelayCpx: false;
+  nodeCapRaw: typeof NODE_REWARD_CAP_RAW;
+  nodeCapPeriodMs: typeof REWARD_PERIOD_DURATION_MS;
   nodeLimitedRaw: bigint;
+  globalBudgetRate: '0.05%_of_reserve_remaining_at_period_start';
   globalPoolHardCapRaw: bigint;
-  referral: { referrerRaw: bigint; relayRaw: bigint } | { blocked: string };
+  referral: ReferralQuoteResult;
   first5000: ReturnType<typeof first5000Allocation>;
+  walletToWalletAppBurnRaw: typeof WALLET_TO_WALLET_APP_BURN_RAW;
+  relaySolExpense: typeof RELAY_SOL_EXPENSE;
+  senderApprovedSolFeesSeparate: true;
   platformFee: typeof PLATFORM_FEE;
   settlementExecution: 'BLOCKED_NOT_IN_OPEN_SDK';
 }>;
@@ -360,13 +499,17 @@ export function quoteDeliveryEconomy(input: {
   globalAlreadyPaidRaw?: bigint;
   /** Must equal simulated actual payable when provided; otherwise derived. */
   actualPayableRawForReferral?: bigint;
+  /** Explicit eligibility only — never automatic referral. */
+  referralEligibility?: ReferralEligibility;
 }): EconomyQuoteBundle & {
   actualPayableRaw: bigint;
   globalRemainingRaw: bigint;
+  rewardReserveRawAtPeriodStart: bigint;
 } {
   const burn = offlineServiceBurnCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
   const nominal = nominalRelayRewardCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
   const reserve = input.rewardReserveRawAtPeriodStart ?? 1_500_000_000_000n * CPX_RAW_SCALE;
+  assertNonNegative(reserve, 'rewardReserveRawAtPeriodStart');
   const pool = globalPeriodPoolHardCapRaw(reserve);
   const globalAlready = input.globalAlreadyPaidRaw ?? 0n;
   assertNonNegative(globalAlready, 'globalAlreadyPaidRaw');
@@ -382,25 +525,38 @@ export function quoteDeliveryEconomy(input: {
   ) {
     throw new Error('REFERRAL_INPUT_MUST_MATCH_SIMULATED_PAYABLE');
   }
-  let referral: EconomyQuoteBundle['referral'];
-  try {
-    referral = referralSplitRawExactOrFail(payable.actualPayableRaw);
-  } catch (e) {
-    referral = { blocked: e instanceof Error ? e.message : String(e) };
-  }
+  const referral = conditionalReferralSplit({
+    actualPayableRaw: payable.actualPayableRaw,
+    eligibility: input.referralEligibility,
+  });
   return {
     readiness: ECONOMY_READINESS,
     cpxEurPrice: input.cpxEurPriceDecimal,
+    simulationDisclaimer: ECONOMY_SIMULATION_DISCLAIMER,
+    onlineMessagingCpxRaw: ONLINE_MESSAGING_CPX_RAW,
+    onlineReceivingCpxRaw: ONLINE_RECEIVING_CPX_RAW,
+    offlineBurnEurTarget: OFFLINE_SERVICE_BURN_EUR,
     offlineBurnRaw: burn.serviceBurnCpxRaw,
     offlineBurnCpx: rawToCpxDecimal(burn.serviceBurnCpxRaw),
+    nominalRelayEurTarget: RELAY_REWARD_EUR_TARGET,
     nominalRelayRaw: nominal.nominalRewardCpxRaw,
     nominalRelayCpx: rawToCpxDecimal(nominal.nominalRewardCpxRaw),
+    nominalRelayFormula: 'min(1_CPX, EUR_0.005 / settlement_price)',
+    rewardSource: 'REWARD_RESERVE',
+    senderFundsRelayCpx: false,
+    nodeCapRaw: NODE_REWARD_CAP_RAW,
+    nodeCapPeriodMs: REWARD_PERIOD_DURATION_MS,
     nodeLimitedRaw: payable.nodeLimitedRaw,
     actualPayableRaw: payable.actualPayableRaw,
+    globalBudgetRate: '0.05%_of_reserve_remaining_at_period_start',
     globalPoolHardCapRaw: pool,
     globalRemainingRaw,
+    rewardReserveRawAtPeriodStart: reserve,
     referral,
     first5000: first5000Allocation(),
+    walletToWalletAppBurnRaw: WALLET_TO_WALLET_APP_BURN_RAW,
+    relaySolExpense: RELAY_SOL_EXPENSE,
+    senderApprovedSolFeesSeparate: true,
     platformFee: PLATFORM_FEE,
     settlementExecution: 'BLOCKED_NOT_IN_OPEN_SDK',
   };

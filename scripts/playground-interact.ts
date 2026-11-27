@@ -70,11 +70,15 @@ async function main(): Promise<void> {
     html.includes('data-testid="btn-offline"') &&
     html.includes('data-testid="btn-guided"') &&
     html.includes('Humanity Is the Infrastructure') &&
+    html.includes('CURRENT DELIVERY ECONOMY') &&
+    html.includes('INDEPENDENT ECONOMY CALCULATOR') &&
     html.includes('meshsender-sdk.bundle.js') &&
     !html.includes('sdk-browser.js') &&
     js.length > 1000 &&
     app.includes('MeshSenderSDK') &&
     app.includes('Need successful delivery first') &&
+    app.includes('guidedStepCompleted') &&
+    app.includes('CURRENT_DELIVERY_PIPELINE') &&
     !app.includes("getElementById('btn-offline').click()");
 
   // Execute the same interactive flows the UI buttons trigger.

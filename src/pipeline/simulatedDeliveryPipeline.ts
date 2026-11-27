@@ -25,6 +25,7 @@ import { digestPayload } from '../delivery-proofs/demoProof.js';
 import {
   allocateSequentialRelayRewards,
   quoteDeliveryEconomy,
+  quoteFailedOfflineDeliveryEconomy,
 } from '../economy/canonicalQuotes.js';
 
 export type SimulatedDeliveryPipelineResult =
@@ -49,6 +50,9 @@ export type SimulatedDeliveryPipelineResult =
       reason: 'DELIVERY_NOT_SUCCESSFUL' | 'PROOF_VERIFY_FAILED' | 'RELAY_VERIFY_FAILED';
       simulation: OfflineSimulationResult;
       detail?: string;
+      /** Failed/expired path: zero burn and zero relay rewards; no valid delivery proof. */
+      failedEconomy: ReturnType<typeof quoteFailedOfflineDeliveryEconomy>;
+      deliveryProofValid: false;
     }>;
 
 /** Extract actual FORWARDED event timestamps for each intermediate relay along the delivery route. */
@@ -90,7 +94,13 @@ export function runSimulatedDeliveryPipeline(input: {
     simulation.hops == null ||
     !simulation.deliveryRoute
   ) {
-    return { ok: false, reason: 'DELIVERY_NOT_SUCCESSFUL', simulation };
+    return {
+      ok: false,
+      reason: 'DELIVERY_NOT_SUCCESSFUL',
+      simulation,
+      failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+      deliveryProofValid: false,
+    };
   }
 
   const recipientSigner = generateDemoKeyPair();
@@ -111,6 +121,8 @@ export function runSimulatedDeliveryPipeline(input: {
       reason: 'PROOF_VERIFY_FAILED',
       simulation,
       detail: proofCheck.reason,
+      failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+      deliveryProofValid: false,
     };
   }
 
@@ -186,6 +198,8 @@ export function runSimulatedDeliveryPipeline(input: {
         reason: 'RELAY_VERIFY_FAILED',
         simulation,
         detail: v.reason,
+        failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+        deliveryProofValid: false,
       };
     }
     relay = {

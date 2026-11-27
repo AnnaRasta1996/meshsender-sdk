@@ -22,18 +22,21 @@
       <h1>MeshSender</h1>
       <p class="headline">Humanity Is the Infrastructure.</p>
       <p class="lede">
-        Offline-first communication sovereignty: encrypted messages travel phone-to-phone when the
-        internet fails. Humans and devices become a DePIN mesh — BLE, Wi-Fi Direct, and LoRa —
-        with Node Passport possession proofs, a Solana CPX economy funded by the Reward Reserve,
-        and Paradox Market peer payments with zero platform fee.
+        Offline-first communication sovereignty: store-carry-forward packet simulation shows how
+        phones can meet, carry, and forward when the internet fails. Humans and devices become a
+        DePIN mesh — BLE, Wi-Fi Direct, and LoRa (physical radios PENDING) — with Node Passport
+        possession proofs, a Solana CPX economy funded by the Reward Reserve, and Paradox Market
+        peer payments with zero platform fee. This playground does not claim live encrypted radio
+        transport.
       </p>
       <div class="cta-row">
         <button id="btn-guided" data-testid="btn-guided" class="cta-primary">Start Guided Demo</button>
         <button id="btn-dev-mode" data-testid="btn-dev-mode" class="cta-secondary">Developer Mode</button>
       </div>
       <p class="disclaimer">
-        This playground is simulation + live read-only inspection. It never claims physical-device
-        radio delivery or live settlement spending.
+        Simulation + live read-only inspection only. CPX prices, reserves, and eligibility shown here
+        are hypothetical simulation inputs — not live pricing or actual payouts. No signing, spend,
+        or settlement execution.
       </p>
     </header>
 
@@ -42,6 +45,7 @@
         <h2>Guided story</h2>
         <p>One connected walkthrough — Alice to Bob without continuous internet.</p>
         <div class="step-rail" id="step-rail" aria-label="Demo steps"></div>
+        <p class="scenario-tag" id="scenario-tag">Scenario A (success) ready</p>
       </div>
 
       <article class="story-panel" id="story-panel">
@@ -71,18 +75,22 @@
     <main id="developer" class="developer" hidden>
       <div class="dev-banner">
         <h2>Developer Mode</h2>
-        <p>Every existing SDK playground control — JSON-first for engineers.</p>
+        <p>
+          Separate from Guided state. All SDK controls preserved. Readable CPX summaries above;
+          technical JSON collapsed by default.
+        </p>
       </div>
 
       <section class="wide">
         <h2>Network progression</h2>
-        <p class="hint">Visual carrier route after offline simulation.</p>
+        <p class="hint">Scenario A = successful delivery · Scenario B = outage/expiry miss.</p>
         <div id="net-viz-dev" class="net-viz"></div>
         <div class="row">
-          <button id="btn-offline" data-testid="btn-offline">Run offline delivery</button>
-          <button id="btn-outage" class="secondary" data-testid="btn-outage">Run with outage/expiry miss</button>
+          <button id="btn-offline" data-testid="btn-offline">Run offline delivery (A)</button>
+          <button id="btn-outage" class="secondary" data-testid="btn-outage">Run outage/expiry miss (B)</button>
         </div>
-        <details class="tech-evidence" open>
+        <div id="sum-offline" class="cpx-summary muted">No delivery run yet.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-offline" data-testid="out-offline">Ready.</pre>
         </details>
@@ -91,7 +99,8 @@
       <section>
         <h2>Delivery proof tamper</h2>
         <button id="btn-proof" data-testid="btn-proof">Verify + tamper</button>
-        <details class="tech-evidence" open>
+        <div id="sum-proof" class="cpx-summary muted">Requires successful scenario A.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-proof" data-testid="out-proof">Ready.</pre>
         </details>
@@ -100,7 +109,8 @@
       <section>
         <h2>Paged relay verify</h2>
         <button id="btn-relay" data-testid="btn-relay">Build + verify pages</button>
-        <details class="tech-evidence" open>
+        <div id="sum-relay" class="cpx-summary muted">Requires successful multi-hop A.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-relay" data-testid="out-relay">Ready.</pre>
         </details>
@@ -109,18 +119,43 @@
       <section>
         <h2>Node Passport</h2>
         <button id="btn-passport" data-testid="btn-passport">Possession proof verify</button>
-        <details class="tech-evidence" open>
+        <div id="sum-passport" class="cpx-summary muted">Synthetic possession only.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-passport" data-testid="out-passport">Ready.</pre>
         </details>
       </section>
 
-      <section>
-        <h2>Economy</h2>
-        <label for="price">CPX EUR price</label>
+      <section class="wide">
+        <h2>CURRENT DELIVERY ECONOMY</h2>
+        <p class="hint">
+          Bound to the latest successful Developer scenario A pipeline (BigInt SDK outputs). Not the
+          independent calculator.
+        </p>
+        <button id="btn-econ-delivery" data-testid="btn-econ-delivery">Show current delivery economy</button>
+        <div id="sum-econ-delivery" class="cpx-summary muted">Run successful offline delivery first.</div>
+        <details class="tech-evidence">
+          <summary>Technical Evidence</summary>
+          <pre id="out-econ-delivery" data-testid="out-econ-delivery">Ready.</pre>
+        </details>
+      </section>
+
+      <section class="wide">
+        <h2>INDEPENDENT ECONOMY CALCULATOR</h2>
+        <p class="hint">
+          Hypothetical simulation inputs only — not live pricing or actual payouts. Independent of
+          current delivery route proofs.
+        </p>
+        <label for="price">CPX EUR price (hypothetical)</label>
         <input id="price" data-testid="price" value="0.0005" />
-        <button id="btn-econ" data-testid="btn-econ">Quote burn + payable</button>
-        <details class="tech-evidence" open>
+        <label for="referral-eligible">
+          <input id="referral-eligible" type="checkbox" /> Conditional eligible referral (explicit)
+        </label>
+        <label for="referral-count">Valid referred count (1–5)</label>
+        <input id="referral-count" data-testid="referral-count" value="1" />
+        <button id="btn-econ" data-testid="btn-econ">Quote burn + payable (independent)</button>
+        <div id="sum-econ" class="cpx-summary muted">No independent quote yet.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-econ" data-testid="out-econ">Ready.</pre>
         </details>
@@ -137,7 +172,8 @@
           <option value="housing_guarantee">housing_guarantee</option>
         </select>
         <button id="btn-market" data-testid="btn-market">Quote direct payment</button>
-        <details class="tech-evidence" open>
+        <div id="sum-market" class="cpx-summary muted">No market quote yet.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-market" data-testid="out-market">Ready.</pre>
         </details>
@@ -146,7 +182,11 @@
       <section class="wide">
         <h2>Live Solana read-only</h2>
         <button id="btn-solana" data-testid="btn-solana">Inspect mint + dual-RPC program</button>
-        <details class="tech-evidence" open>
+        <button id="btn-solana-snap" class="secondary" data-testid="btn-solana-snap">
+          Capture historical RPC snapshot
+        </button>
+        <div id="sum-solana" class="cpx-summary muted">No Solana inspection yet.</div>
+        <details class="tech-evidence">
           <summary>Technical Evidence</summary>
           <pre id="out-solana" data-testid="out-solana">Ready.</pre>
         </details>

@@ -2346,6 +2346,7 @@ var MeshSenderSDK = (() => {
     DELIVERY_PROOF_READINESS: () => DELIVERY_PROOF_READINESS,
     DG2_RULE: () => DG2_RULE,
     ECONOMY_READINESS: () => ECONOMY_READINESS,
+    ECONOMY_SIMULATION_DISCLAIMER: () => ECONOMY_SIMULATION_DISCLAIMER,
     FEATURE_READINESS_MATRIX: () => FEATURE_READINESS_MATRIX,
     FIRST5000_NODE_COUNT: () => FIRST5000_NODE_COUNT,
     FIRST5000_PER_NODE_RAW: () => FIRST5000_PER_NODE_RAW,
@@ -2360,8 +2361,12 @@ var MeshSenderSDK = (() => {
     NODE_PASSPORT_READINESS: () => NODE_PASSPORT_READINESS,
     NODE_REWARD_CAP_RAW: () => NODE_REWARD_CAP_RAW,
     OFFLINE_SERVICE_BURN_EUR: () => OFFLINE_SERVICE_BURN_EUR,
+    ONLINE_MESSAGING_CPX_RAW: () => ONLINE_MESSAGING_CPX_RAW,
+    ONLINE_RECEIVING_CPX_RAW: () => ONLINE_RECEIVING_CPX_RAW,
     PLATFORM_FEE: () => PLATFORM_FEE,
+    PUBLIC_EXPLORER_LINKS: () => PUBLIC_EXPLORER_LINKS,
     PUBLIC_RPC_READINESS: () => PUBLIC_RPC_READINESS,
+    PUBLIC_RPC_TIMEOUT_MS: () => PUBLIC_RPC_TIMEOUT_MS,
     REFERRAL_MAX_EDGES: () => REFERRAL_MAX_EDGES,
     REFERRAL_REFERRER_DEN: () => REFERRAL_REFERRER_DEN,
     REFERRAL_REFERRER_NUM: () => REFERRAL_REFERRER_NUM,
@@ -2370,6 +2375,7 @@ var MeshSenderSDK = (() => {
     RELAY_EVIDENCE_READINESS: () => RELAY_EVIDENCE_READINESS,
     RELAY_REWARD_CPX_CEILING_RAW: () => RELAY_REWARD_CPX_CEILING_RAW,
     RELAY_REWARD_EUR_TARGET: () => RELAY_REWARD_EUR_TARGET,
+    RELAY_SOL_EXPENSE: () => RELAY_SOL_EXPENSE,
     REWARD_PERIOD_DURATION_MS: () => REWARD_PERIOD_DURATION_MS,
     Readiness: () => Readiness,
     SDK_DEMO_AGREEMENT_DOMAIN: () => SDK_DEMO_AGREEMENT_DOMAIN,
@@ -2383,6 +2389,7 @@ var MeshSenderSDK = (() => {
     SDK_VERSION: () => SDK_VERSION,
     SECONDARY_MAINNET_RPC: () => SECONDARY_MAINNET_RPC,
     SPL_TOKEN_PROGRAM_ID: () => SPL_TOKEN_PROGRAM_ID,
+    WALLET_TO_WALLET_APP_BURN_RAW: () => WALLET_TO_WALLET_APP_BURN_RAW,
     allocateSequentialRelayRewards: () => allocateSequentialRelayRewards,
     applyHighConfidenceWeightOrBlock: () => applyHighConfidenceWeightOrBlock,
     buildCanonicalDeliveryMessage: () => buildCanonicalDeliveryMessage,
@@ -2390,6 +2397,7 @@ var MeshSenderSDK = (() => {
     buildRelayHopsFromDeliveryRoute: () => buildRelayHopsFromDeliveryRoute,
     computeLeafHex: () => computeLeafHex,
     computeRouteSeedHex: () => computeRouteSeedHex,
+    conditionalReferralSplit: () => conditionalReferralSplit,
     createBleSimAdapter: () => createBleSimAdapter,
     createDefaultSimTransportBundle: () => createDefaultSimTransportBundle,
     createDeliveryProofFromSimulation: () => createDeliveryProofFromSimulation,
@@ -2403,6 +2411,7 @@ var MeshSenderSDK = (() => {
     deriveCommonRewardPeriodId: () => deriveCommonRewardPeriodId,
     digestPayload: () => digestPayload,
     extractRelayForwardTimestampsFromEvents: () => extractRelayForwardTimestampsFromEvents,
+    fetchHistoricalRpcSnapshot: () => fetchHistoricalRpcSnapshot,
     fetchInspectCpxMint: () => fetchInspectCpxMint,
     fetchInspectProgram: () => fetchInspectProgram,
     fetchInspectProgramDualRpc: () => fetchInspectProgramDualRpc,
@@ -2417,8 +2426,12 @@ var MeshSenderSDK = (() => {
     nominalRelayRewardCpxRawFromEurPriceDecimal: () => nominalRelayRewardCpxRawFromEurPriceDecimal,
     offlineServiceBurnCpxRawFromEurPriceDecimal: () => offlineServiceBurnCpxRawFromEurPriceDecimal,
     parseDecimalToRational: () => parseDecimalToRational,
+    publicPhantomTokenUrl: () => publicPhantomTokenUrl,
+    publicSolscanAccountUrl: () => publicSolscanAccountUrl,
+    publicSolscanTokenUrl: () => publicSolscanTokenUrl,
     quoteDeliveryEconomy: () => quoteDeliveryEconomy,
     quoteDirectMarketPayment: () => quoteDirectMarketPayment,
+    quoteFailedOfflineDeliveryEconomy: () => quoteFailedOfflineDeliveryEconomy,
     rationalCpxToRawDg2: () => rationalCpxToRawDg2,
     rawToCpxDecimal: () => rawToCpxDecimal,
     reduceRational: () => reduceRational,
@@ -2434,7 +2447,8 @@ var MeshSenderSDK = (() => {
     verifyDemoDeliveryProof: () => verifyDemoDeliveryProof,
     verifyDemoRelayHop: () => verifyDemoRelayHop,
     verifyPagedRelayEvidence: () => verifyPagedRelayEvidence,
-    verifyPublicPassport: () => verifyPublicPassport
+    verifyPublicPassport: () => verifyPublicPassport,
+    walletToWalletAppBurnRaw: () => walletToWalletAppBurnRaw
   });
 
   // src/readiness.ts
@@ -3563,6 +3577,11 @@ var MeshSenderSDK = (() => {
   var REWARD_PERIOD_DURATION_MS = 30n * 24n * 60n * 60n * 1000n;
   var DG2_RULE = "nearest_representable_6_decimals_ties_round_up";
   var PLATFORM_FEE = 0;
+  var ONLINE_MESSAGING_CPX_RAW = 0n;
+  var ONLINE_RECEIVING_CPX_RAW = 0n;
+  var WALLET_TO_WALLET_APP_BURN_RAW = 0n;
+  var RELAY_SOL_EXPENSE = 0;
+  var ECONOMY_SIMULATION_DISCLAIMER = "HYPOTHETICAL_SIMULATION_INPUTS_NOT_LIVE_PRICING_OR_PAYOUT";
   function assertPositiveDenominator(d) {
     if (d <= 0n) throw new Error("ECONOMY_DENOMINATOR_MUST_BE_POSITIVE");
   }
@@ -3691,6 +3710,74 @@ var MeshSenderSDK = (() => {
     }
     return { referrerRaw: rem.quotient, relayRaw: actualRewardRaw - rem.quotient };
   }
+  function conditionalReferralSplit(input) {
+    assertNonNegative(input.actualPayableRaw, "actualPayableRaw");
+    const eligible = input.eligibility;
+    if (!eligible || !eligible.hasValidReferralRelationship) {
+      return {
+        applied: false,
+        reason: eligible ? "REFERRAL_NOT_ELIGIBLE" : "NO_AUTOMATIC_REFERRAL",
+        referrerRaw: 0n,
+        relayRaw: input.actualPayableRaw
+      };
+    }
+    const count = eligible.validReferredCountForReferrer;
+    if (count === void 0 || !Number.isInteger(count) || count < 1) {
+      return {
+        applied: false,
+        reason: "REFERRAL_COUNT_INVALID",
+        referrerRaw: 0n,
+        relayRaw: input.actualPayableRaw
+      };
+    }
+    if (count > REFERRAL_MAX_EDGES) {
+      return {
+        applied: false,
+        reason: "REFERRAL_MAX_EDGES_EXCEEDED",
+        referrerRaw: 0n,
+        relayRaw: input.actualPayableRaw
+      };
+    }
+    try {
+      const split = referralSplitRawExactOrFail(input.actualPayableRaw);
+      return {
+        applied: true,
+        levels: 1,
+        referrerRaw: split.referrerRaw,
+        relayRaw: split.relayRaw,
+        maxValidReferrals: REFERRAL_MAX_EDGES,
+        countsInsideUnifiedNodeCap: true
+      };
+    } catch (e) {
+      return {
+        applied: false,
+        reason: e instanceof Error ? e.message : String(e),
+        referrerRaw: 0n,
+        relayRaw: input.actualPayableRaw
+      };
+    }
+  }
+  function quoteFailedOfflineDeliveryEconomy() {
+    return {
+      readiness: ECONOMY_READINESS,
+      offlineBurnRaw: 0n,
+      offlineBurnCpx: rawToCpxDecimal(0n),
+      totalRelayPayableRaw: 0n,
+      perRelayPayableRaw: [],
+      referral: {
+        applied: false,
+        reason: "NO_AUTOMATIC_REFERRAL",
+        referrerRaw: 0n,
+        relayRaw: 0n
+      },
+      simulationDisclaimer: ECONOMY_SIMULATION_DISCLAIMER,
+      reason: "FAILED_OR_EXPIRED_DELIVERY_ZERO_BURN_ZERO_REWARDS"
+    };
+  }
+  function walletToWalletAppBurnRaw(principalCpxRaw) {
+    assertNonNegative(principalCpxRaw, "principalCpxRaw");
+    return WALLET_TO_WALLET_APP_BURN_RAW;
+  }
   function marketBurnRawExactOrFail(principalCpxRaw) {
     assertNonNegative(principalCpxRaw, "principalCpxRaw");
     const rem = divRem(principalCpxRaw * MARKET_BURN_NUMERATOR, MARKET_BURN_DENOMINATOR);
@@ -3772,6 +3859,7 @@ var MeshSenderSDK = (() => {
     const burn = offlineServiceBurnCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
     const nominal = nominalRelayRewardCpxRawFromEurPriceDecimal(input.cpxEurPriceDecimal);
     const reserve = input.rewardReserveRawAtPeriodStart ?? 1500000000000n * CPX_RAW_SCALE;
+    assertNonNegative(reserve, "rewardReserveRawAtPeriodStart");
     const pool = globalPeriodPoolHardCapRaw(reserve);
     const globalAlready = input.globalAlreadyPaidRaw ?? 0n;
     assertNonNegative(globalAlready, "globalAlreadyPaidRaw");
@@ -3784,25 +3872,38 @@ var MeshSenderSDK = (() => {
     if (input.actualPayableRawForReferral !== void 0 && input.actualPayableRawForReferral !== payable.actualPayableRaw) {
       throw new Error("REFERRAL_INPUT_MUST_MATCH_SIMULATED_PAYABLE");
     }
-    let referral;
-    try {
-      referral = referralSplitRawExactOrFail(payable.actualPayableRaw);
-    } catch (e) {
-      referral = { blocked: e instanceof Error ? e.message : String(e) };
-    }
+    const referral = conditionalReferralSplit({
+      actualPayableRaw: payable.actualPayableRaw,
+      eligibility: input.referralEligibility
+    });
     return {
       readiness: ECONOMY_READINESS,
       cpxEurPrice: input.cpxEurPriceDecimal,
+      simulationDisclaimer: ECONOMY_SIMULATION_DISCLAIMER,
+      onlineMessagingCpxRaw: ONLINE_MESSAGING_CPX_RAW,
+      onlineReceivingCpxRaw: ONLINE_RECEIVING_CPX_RAW,
+      offlineBurnEurTarget: OFFLINE_SERVICE_BURN_EUR,
       offlineBurnRaw: burn.serviceBurnCpxRaw,
       offlineBurnCpx: rawToCpxDecimal(burn.serviceBurnCpxRaw),
+      nominalRelayEurTarget: RELAY_REWARD_EUR_TARGET,
       nominalRelayRaw: nominal.nominalRewardCpxRaw,
       nominalRelayCpx: rawToCpxDecimal(nominal.nominalRewardCpxRaw),
+      nominalRelayFormula: "min(1_CPX, EUR_0.005 / settlement_price)",
+      rewardSource: "REWARD_RESERVE",
+      senderFundsRelayCpx: false,
+      nodeCapRaw: NODE_REWARD_CAP_RAW,
+      nodeCapPeriodMs: REWARD_PERIOD_DURATION_MS,
       nodeLimitedRaw: payable.nodeLimitedRaw,
       actualPayableRaw: payable.actualPayableRaw,
+      globalBudgetRate: "0.05%_of_reserve_remaining_at_period_start",
       globalPoolHardCapRaw: pool,
       globalRemainingRaw,
+      rewardReserveRawAtPeriodStart: reserve,
       referral,
       first5000: first5000Allocation(),
+      walletToWalletAppBurnRaw: WALLET_TO_WALLET_APP_BURN_RAW,
+      relaySolExpense: RELAY_SOL_EXPENSE,
+      senderApprovedSolFeesSeparate: true,
       platformFee: PLATFORM_FEE,
       settlementExecution: "BLOCKED_NOT_IN_OPEN_SDK"
     };
@@ -3811,6 +3912,20 @@ var MeshSenderSDK = (() => {
   // src/market/paradoxMarket.ts
   var MARKET_READINESS = Readiness.SIMULATED;
   var SDK_DEMO_AGREEMENT_DOMAIN = "meshsender.sdk.demo.market-agreement.v1";
+  var CATEGORY_EXAMPLES = {
+    product: {
+      exampleLabel: "Product example \u2014 peer goods sale (full principal to seller)",
+      housingRentRemainsEur: false
+    },
+    service: {
+      exampleLabel: "Service example \u2014 peer work/service payment (full principal to provider)",
+      housingRentRemainsEur: false
+    },
+    housing_guarantee: {
+      exampleLabel: "Housing guarantee example \u2014 CPX guarantee only; ordinary rent remains EUR outside MeshSender",
+      housingRentRemainsEur: true
+    }
+  };
   function canonicalAgreementJson(draft) {
     return [
       SDK_DEMO_AGREEMENT_DOMAIN,
@@ -3892,19 +4007,24 @@ var MeshSenderSDK = (() => {
     const principalRaw = converted.raw;
     const burnRaw = marketBurnRawExactOrFail(principalRaw);
     const total = principalRaw + burnRaw;
+    const cat = CATEGORY_EXAMPLES[input.category];
     return {
       readiness: ECONOMY_READINESS,
       category: input.category,
+      exampleLabel: cat.exampleLabel,
       principalRaw,
       principalCpx: rawToCpxDecimal(principalRaw),
       recipientReceivesRaw: principalRaw,
       recipientReceivesCpx: rawToCpxDecimal(principalRaw),
       buyerExtraBurnRaw: burnRaw,
       buyerExtraBurnCpx: rawToCpxDecimal(burnRaw),
+      buyerExtraBurnRate: "0.10%",
       buyerTotalRaw: total,
       buyerTotalCpx: rawToCpxDecimal(total),
       platformCommission: PLATFORM_FEE,
       custodialEscrow: false,
+      solFeesRentSeparateSubjectToApproval: true,
+      housingRentRemainsEur: cat.housingRentRemainsEur,
       marketplaceOperationalClaim: "NOT_CLAIMED_UNFINISHED_FEATURES_PENDING"
     };
   }
@@ -3959,7 +4079,13 @@ var MeshSenderSDK = (() => {
   function runSimulatedDeliveryPipeline(input) {
     const simulation = runOfflineStoreCarryForward(input.simulationInput);
     if (!simulation.delivered || simulation.deliveryAtMs == null || simulation.hops == null || !simulation.deliveryRoute) {
-      return { ok: false, reason: "DELIVERY_NOT_SUCCESSFUL", simulation };
+      return {
+        ok: false,
+        reason: "DELIVERY_NOT_SUCCESSFUL",
+        simulation,
+        failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+        deliveryProofValid: false
+      };
     }
     const recipientSigner = generateDemoKeyPair();
     const proof = createDeliveryProofFromSimulation({
@@ -3978,7 +4104,9 @@ var MeshSenderSDK = (() => {
         ok: false,
         reason: "PROOF_VERIFY_FAILED",
         simulation,
-        detail: proofCheck.reason
+        detail: proofCheck.reason,
+        failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+        deliveryProofValid: false
       };
     }
     const economy = quoteDeliveryEconomy({
@@ -4035,7 +4163,9 @@ var MeshSenderSDK = (() => {
           ok: false,
           reason: "RELAY_VERIFY_FAILED",
           simulation,
-          detail: v.reason
+          detail: v.reason,
+          failedEconomy: quoteFailedOfflineDeliveryEconomy(),
+          deliveryProofValid: false
         };
       }
       relay = {
@@ -4068,21 +4198,99 @@ var MeshSenderSDK = (() => {
 
   // src/solana/publicRpcFetch.ts
   var PUBLIC_RPC_READINESS = Readiness.LIVE_READ_ONLY;
-  async function rpc(rpcUrl, method, params) {
+  var PUBLIC_RPC_TIMEOUT_MS = 12e3;
+  function publicSolscanTokenUrl(mintAddress = CPX_MAINNET_MINT_ADDRESS) {
+    return `https://solscan.io/token/${mintAddress}`;
+  }
+  function publicSolscanAccountUrl(address) {
+    return `https://solscan.io/account/${address}`;
+  }
+  function publicPhantomTokenUrl(mintAddress = CPX_MAINNET_MINT_ADDRESS) {
+    return `https://phantom.app/tokens/solana/${mintAddress}`;
+  }
+  var PUBLIC_EXPLORER_LINKS = {
+    cpxMintSolscan: publicSolscanTokenUrl(CPX_MAINNET_MINT_ADDRESS),
+    cpxMintPhantom: publicPhantomTokenUrl(CPX_MAINNET_MINT_ADDRESS),
+    programSolscan: publicSolscanAccountUrl(MESHSENDER_PROGRAM_ID)
+  };
+  function classifyHttpStatus(status) {
+    if (status === 403) return "HTTP_FORBIDDEN";
+    if (status === 429) return "HTTP_RATE_LIMITED";
+    return "HTTP_ERROR";
+  }
+  async function rpc(rpcUrl, method, params, timeoutMs = PUBLIC_RPC_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: controller.signal
       });
-      const json = await res.json();
-      if (json.error) return { ok: false, error: json.error.message || "RPC_ERROR" };
-      return { ok: true, result: json.result };
+      if (!res.ok) {
+        let bodyHint = "";
+        try {
+          bodyHint = (await res.text()).slice(0, 180);
+        } catch {
+          bodyHint = "";
+        }
+        return {
+          ok: false,
+          kind: classifyHttpStatus(res.status),
+          error: `HTTP_${res.status}${bodyHint ? `:${bodyHint}` : ""}`,
+          httpStatus: res.status
+        };
+      }
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        return {
+          ok: false,
+          kind: "MALFORMED_RESPONSE",
+          error: "RESPONSE_NOT_JSON",
+          httpStatus: res.status
+        };
+      }
+      if (!json || typeof json !== "object" || !("jsonrpc" in json) || json.jsonrpc !== "2.0") {
+        return {
+          ok: false,
+          kind: "MALFORMED_RESPONSE",
+          error: "INVALID_JSONRPC_ENVELOPE",
+          httpStatus: res.status
+        };
+      }
+      const envelope = json;
+      if (envelope.error) {
+        return {
+          ok: false,
+          kind: "JSON_RPC_ERROR",
+          error: envelope.error.message || `JSON_RPC_${envelope.error.code ?? "ERROR"}`,
+          httpStatus: res.status
+        };
+      }
+      if (!("result" in envelope)) {
+        return {
+          ok: false,
+          kind: "MALFORMED_RESPONSE",
+          error: "MISSING_RESULT_FIELD",
+          httpStatus: res.status
+        };
+      }
+      return { ok: true, result: envelope.result };
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      const name = e instanceof Error ? e.name : "";
+      const message = e instanceof Error ? e.message : String(e);
+      if (name === "AbortError" || /aborted/i.test(message)) {
+        return { ok: false, kind: "TIMEOUT", error: `RPC_TIMEOUT_${timeoutMs}MS`, httpStatus: null };
+      }
+      return { ok: false, kind: "NETWORK_FAILURE", error: message, httpStatus: null };
+    } finally {
+      clearTimeout(timer);
     }
   }
-  async function fetchInspectCpxMint(rpcUrl = DEFAULT_MAINNET_RPC) {
+  async function inspectCpxMintOnRpc(rpcUrl) {
     const slot = await rpc(rpcUrl, "getSlot", []);
     const acc = await rpc(rpcUrl, "getAccountInfo", [
       CPX_MAINNET_MINT_ADDRESS,
@@ -4092,8 +4300,12 @@ var MeshSenderSDK = (() => {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
+        mintAddress: CPX_MAINNET_MINT_ADDRESS,
         error: acc.error,
-        rpcUrl
+        failureKind: acc.kind,
+        rpcUrl,
+        usedFallback: false,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     const value = acc.result?.value;
@@ -4101,8 +4313,12 @@ var MeshSenderSDK = (() => {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
+        mintAddress: CPX_MAINNET_MINT_ADDRESS,
         error: "MINT_ACCOUNT_NOT_FOUND",
-        rpcUrl
+        failureKind: "ACCOUNT_NOT_FOUND",
+        rpcUrl,
+        usedFallback: false,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     const owner = value.owner ?? "";
@@ -4112,30 +4328,83 @@ var MeshSenderSDK = (() => {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
+        mintAddress: CPX_MAINNET_MINT_ADDRESS,
         error: `UNEXPECTED_MINT:${owner}:${parsedType}`,
-        rpcUrl
+        failureKind: "MALFORMED_RESPONSE",
+        rpcUrl,
+        usedFallback: false,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     const supply = await rpc(rpcUrl, "getTokenSupply", [CPX_MAINNET_MINT_ADDRESS]);
-    if (!supply.ok) {
+    let decimals = null;
+    let supplyRaw = null;
+    let supplyUi = "";
+    if (supply.ok) {
+      const s = supply.result.value;
+      if (!s || typeof s.decimals !== "number" || typeof s.amount !== "string") {
+        return {
+          readiness: PUBLIC_RPC_READINESS,
+          status: "RPC_ERROR",
+          mintAddress: CPX_MAINNET_MINT_ADDRESS,
+          error: "MALFORMED_TOKEN_SUPPLY",
+          failureKind: "MALFORMED_RESPONSE",
+          rpcUrl,
+          usedFallback: false,
+          explorer: PUBLIC_EXPLORER_LINKS
+        };
+      }
+      decimals = s.decimals;
+      supplyRaw = s.amount;
+      supplyUi = s.uiAmountString ?? "";
+    } else if (supply.kind === "HTTP_FORBIDDEN" || supply.kind === "HTTP_RATE_LIMITED" || supply.kind === "JSON_RPC_ERROR") {
+      const parsedDecimals = info.decimals;
+      const parsedSupply = info.supply;
+      if (typeof parsedDecimals === "number" && typeof parsedSupply === "string") {
+        decimals = parsedDecimals;
+        supplyRaw = parsedSupply;
+        supplyUi = "";
+      } else {
+        return {
+          readiness: PUBLIC_RPC_READINESS,
+          status: "RPC_ERROR",
+          mintAddress: CPX_MAINNET_MINT_ADDRESS,
+          error: supply.error,
+          failureKind: supply.kind,
+          rpcUrl,
+          usedFallback: false,
+          explorer: PUBLIC_EXPLORER_LINKS
+        };
+      }
+    } else {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
+        mintAddress: CPX_MAINNET_MINT_ADDRESS,
         error: supply.error,
-        rpcUrl
+        failureKind: supply.kind,
+        rpcUrl,
+        usedFallback: false,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
-    const s = supply.result.value;
-    if (s.decimals !== CPX_DECIMALS_EXPECTED) {
+    if (decimals !== CPX_DECIMALS_EXPECTED || supplyRaw == null) {
       return {
         readiness: PUBLIC_RPC_READINESS,
         status: "RPC_ERROR",
-        error: `UNEXPECTED_DECIMALS:${s.decimals}`,
-        rpcUrl
+        mintAddress: CPX_MAINNET_MINT_ADDRESS,
+        error: `UNEXPECTED_DECIMALS:${decimals}`,
+        failureKind: "MALFORMED_RESPONSE",
+        rpcUrl,
+        usedFallback: false,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     const mintAuthorityFieldPresent = Object.prototype.hasOwnProperty.call(info, "mintAuthority");
-    const freezeAuthorityFieldPresent = Object.prototype.hasOwnProperty.call(info, "freezeAuthority");
+    const freezeAuthorityFieldPresent = Object.prototype.hasOwnProperty.call(
+      info,
+      "freezeAuthority"
+    );
     const mintAuthority = !mintAuthorityFieldPresent ? null : info.mintAuthority == null ? null : String(info.mintAuthority);
     const freezeAuthority = !freezeAuthorityFieldPresent ? null : info.freezeAuthority == null ? null : String(info.freezeAuthority);
     return {
@@ -4143,18 +4412,64 @@ var MeshSenderSDK = (() => {
       status: "MINT_VERIFIED",
       mintAddress: CPX_MAINNET_MINT_ADDRESS,
       rpcUrl,
+      usedFallback: false,
       slot: slot.ok ? slot.result : null,
       accountOwner: owner,
       parsedType,
-      decimals: s.decimals,
-      supplyRaw: s.amount,
-      supplyUi: s.uiAmountString ?? "",
+      decimals,
+      supplyRaw,
+      supplyUi,
       mintAuthority,
       freezeAuthority,
       mintAuthorityFieldPresent,
       freezeAuthorityFieldPresent,
       mintAuthorityRevoked: mintAuthorityFieldPresent ? info.mintAuthority === null : null,
-      freezeAuthorityRevoked: freezeAuthorityFieldPresent ? info.freezeAuthority === null : null
+      freezeAuthorityRevoked: freezeAuthorityFieldPresent ? info.freezeAuthority === null : null,
+      explorer: PUBLIC_EXPLORER_LINKS
+    };
+  }
+  async function fetchInspectCpxMint(rpcUrl, options) {
+    const primaryUrl = rpcUrl ?? DEFAULT_MAINNET_RPC;
+    const enableFallback = options?.enableFallback ?? rpcUrl === void 0;
+    const fallbackUrl = options?.fallbackRpcUrl ?? SECONDARY_MAINNET_RPC;
+    const primary = await inspectCpxMintOnRpc(primaryUrl);
+    if (primary.status === "MINT_VERIFIED") {
+      return { ...primary, usedFallback: false };
+    }
+    if (!enableFallback || fallbackUrl === primaryUrl) {
+      return primary;
+    }
+    const secondary = await inspectCpxMintOnRpc(fallbackUrl);
+    if (secondary.status === "MINT_VERIFIED") {
+      return {
+        ...secondary,
+        usedFallback: true,
+        primaryError: {
+          kind: primary.failureKind,
+          error: primary.error,
+          rpcUrl: primary.rpcUrl
+        }
+      };
+    }
+    return {
+      readiness: PUBLIC_RPC_READINESS,
+      status: "RPC_ERROR",
+      mintAddress: CPX_MAINNET_MINT_ADDRESS,
+      error: `BOTH_RPC_FAILED:primary=${primary.failureKind}:${primary.error};secondary=${secondary.failureKind}:${secondary.error}`,
+      failureKind: secondary.failureKind,
+      rpcUrl: fallbackUrl,
+      usedFallback: true,
+      primary: {
+        rpcUrl: primary.rpcUrl,
+        failureKind: primary.failureKind,
+        error: primary.error
+      },
+      secondary: {
+        rpcUrl: secondary.rpcUrl,
+        failureKind: secondary.failureKind,
+        error: secondary.error
+      },
+      explorer: PUBLIC_EXPLORER_LINKS
     };
   }
   async function fetchInspectProgram(rpcUrl = DEFAULT_MAINNET_RPC) {
@@ -4169,7 +4484,9 @@ var MeshSenderSDK = (() => {
         slot: null,
         executable: null,
         ownerProgram: null,
-        error: acc.error
+        failureKind: acc.kind,
+        error: acc.error,
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     const value = acc.result?.value;
@@ -4181,7 +4498,9 @@ var MeshSenderSDK = (() => {
         rpcUrl,
         slot: slot.ok ? slot.result : null,
         executable: null,
-        ownerProgram: null
+        ownerProgram: null,
+        failureKind: "ACCOUNT_NOT_FOUND",
+        explorer: PUBLIC_EXPLORER_LINKS
       };
     }
     return {
@@ -4191,7 +4510,8 @@ var MeshSenderSDK = (() => {
       rpcUrl,
       slot: slot.ok ? slot.result : null,
       executable: !!value.executable,
-      ownerProgram: value.owner ?? null
+      ownerProgram: value.owner ?? null,
+      explorer: PUBLIC_EXPLORER_LINKS
     };
   }
   async function fetchInspectProgramDualRpc(rpcUrls = [DEFAULT_MAINNET_RPC, SECONDARY_MAINNET_RPC]) {
@@ -4203,7 +4523,26 @@ var MeshSenderSDK = (() => {
     else if (statuses.size === 1 && statuses.has("PROGRAM_NOT_FOUND")) agreement = "ALL_NOT_FOUND";
     else if (statuses.size === 1 && statuses.has("PROGRAM_NOT_EXECUTABLE"))
       agreement = "ALL_NOT_EXECUTABLE";
-    return { readiness: PUBLIC_RPC_READINESS, results, agreement };
+    return {
+      readiness: PUBLIC_RPC_READINESS,
+      results,
+      agreement,
+      explorer: PUBLIC_EXPLORER_LINKS
+    };
+  }
+  async function fetchHistoricalRpcSnapshot() {
+    const capturedAtIso = (/* @__PURE__ */ new Date()).toISOString();
+    const mint = await fetchInspectCpxMint();
+    const programDualRpc = await fetchInspectProgramDualRpc();
+    return {
+      readiness: PUBLIC_RPC_READINESS,
+      presentation: "HISTORICAL_SNAPSHOT_NOT_LIVE",
+      capturedAtIso,
+      mint,
+      programDualRpc,
+      writesEnabled: false,
+      explorer: PUBLIC_EXPLORER_LINKS
+    };
   }
 
   // src/browser-entry.ts
