@@ -1,9 +1,18 @@
-# Allowlisted static Pages workflow — DO NOT enable GitHub Pages until owner approval.
-# Artifact: playground/ (includes generated meshsender-sdk.bundle.js after build:browser).
-name: pages-prepare-blocked
+# GitHub Pages — manual workflow_dispatch only.
+# Deploy is GATED until explicit owner approval via workflow input.
+# Artifact: allowlisted playground/ only (includes generated meshsender-sdk.bundle.js).
+name: pages-manual-gated
 
 on:
   workflow_dispatch:
+    inputs:
+      owner_approve_deploy:
+        description: >-
+          Explicit owner approval to deploy GitHub Pages after independent review.
+          Leave false to prepare artifact only (default). Set true ONLY when publication is approved.
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,5 +37,16 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: playground
-  # deploy job intentionally omitted / not auto-enabled.
-  # Owner must explicitly approve public Pages enablement after independent review.
+
+  deploy:
+    needs: prepare
+    # Official deploy-pages job — runs ONLY when owner explicitly approves.
+    if: ${{ inputs.owner_approve_deploy == true }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

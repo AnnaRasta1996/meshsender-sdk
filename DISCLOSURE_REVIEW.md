@@ -31,6 +31,12 @@ Publish a hackathon-ready Open SDK that is impressive and executable without lea
 - Live RPC calls may be rate-limited; failures must be reported honestly
 - Owner must still approve MIT + exact allowlist before public GitHub publish
 
+## Pages workflow
+
+`.github/workflows/pages.yml` prepares the allowlisted `playground/` artifact on manual dispatch.
+Deploy uses official `actions/deploy-pages` only when workflow input `owner_approve_deploy=true`.
+Default remains prepare-only. Public open stays blocked without explicit owner approval.
+
 ## Decision gate
 
 **DO NOT PUBLISH PUBLICLY until owner approves exact files and license after independent review.**

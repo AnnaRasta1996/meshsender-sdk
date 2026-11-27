@@ -457,6 +457,11 @@ export function applyHighConfidenceWeightOrBlock(_input: {
   throw new Error('DG3_HIGH_CONFIDENCE_WEIGHT_USE_UNRESOLVED');
 }
 
+export type ReferralAllocationStatus =
+  | 'REFERRAL_APPLIED'
+  | 'NO_REFERRAL_RELAY_FULL'
+  | 'BLOCKED_OWNER_DECISION_REQUIRED';
+
 export type EconomyQuoteBundle = Readonly<{
   readiness: typeof ECONOMY_READINESS;
   cpxEurPrice: string;
@@ -478,6 +483,12 @@ export type EconomyQuoteBundle = Readonly<{
   globalBudgetRate: '0.05%_of_reserve_remaining_at_period_start';
   globalPoolHardCapRaw: bigint;
   referral: ReferralQuoteResult;
+  /** Pre-referral capped quote (node+global). Not final allocated payout when referral blocked. */
+  preReferralPayableRaw: bigint;
+  finalAllocatedReferrerRaw: bigint;
+  finalAllocatedRelayRaw: bigint;
+  finalAllocatedTotalRaw: bigint;
+  allocationStatus: ReferralAllocationStatus;
   first5000: ReturnType<typeof first5000Allocation>;
   walletToWalletAppBurnRaw: typeof WALLET_TO_WALLET_APP_BURN_RAW;
   relaySolExpense: typeof RELAY_SOL_EXPENSE;
@@ -485,6 +496,59 @@ export type EconomyQuoteBundle = Readonly<{
   platformFee: typeof PLATFORM_FEE;
   settlementExecution: 'BLOCKED_NOT_IN_OPEN_SDK';
 }>;
+
+/** True when eligible referral cannot become an approved allocation (cap/inexact/missing). */
+export function isReferralAllocationBlocked(referral: ReferralQuoteResult): boolean {
+  if (referral.applied) return false;
+  if (referral.ownerDecisionRequired) return true;
+  const reason = referral.reason;
+  return (
+    reason === 'MISSING_REFERRER_CAP_INPUT' ||
+    reason === REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED ||
+    reason === 'REFERRER_COUNTED_ABOVE_CAP' ||
+    reason === 'INVALID_REFERRER_COUNTED_RAW' ||
+    String(reason).includes('INEXACT')
+  );
+}
+
+export function deriveReferralAllocation(
+  preReferralPayableRaw: bigint,
+  referral: ReferralQuoteResult
+): {
+  allocationStatus: ReferralAllocationStatus;
+  finalAllocatedReferrerRaw: bigint;
+  finalAllocatedRelayRaw: bigint;
+  finalAllocatedTotalRaw: bigint;
+} {
+  assertNonNegative(preReferralPayableRaw, 'preReferralPayableRaw');
+  if (referral.applied) {
+    const total = referral.referrerRaw + referral.relayRaw;
+    if (total !== preReferralPayableRaw) {
+      throw new Error('REFERRAL_ALLOCATION_MUST_EQUAL_PRE_REFERRAL_PAYABLE');
+    }
+    return {
+      allocationStatus: 'REFERRAL_APPLIED',
+      finalAllocatedReferrerRaw: referral.referrerRaw,
+      finalAllocatedRelayRaw: referral.relayRaw,
+      finalAllocatedTotalRaw: total,
+    };
+  }
+  if (isReferralAllocationBlocked(referral)) {
+    return {
+      allocationStatus: 'BLOCKED_OWNER_DECISION_REQUIRED',
+      finalAllocatedReferrerRaw: 0n,
+      finalAllocatedRelayRaw: 0n,
+      finalAllocatedTotalRaw: 0n,
+    };
+  }
+  // No referral relationship / not eligible → full pre-referral payable to relay path.
+  return {
+    allocationStatus: 'NO_REFERRAL_RELAY_FULL',
+    finalAllocatedReferrerRaw: 0n,
+    finalAllocatedRelayRaw: preReferralPayableRaw,
+    finalAllocatedTotalRaw: preReferralPayableRaw,
+  };
+}
 
 /**
  * Apply remaining node + global budget to simulated payable rewards.
@@ -608,6 +672,8 @@ export function quoteDeliveryEconomy(input: {
     actualPayableRaw: payable.actualPayableRaw,
     eligibility: input.referralEligibility,
   });
+  const preReferralPayableRaw = payable.actualPayableRaw;
+  const allocation = deriveReferralAllocation(preReferralPayableRaw, referral);
   return {
     readiness: ECONOMY_READINESS,
     cpxEurPrice: input.cpxEurPriceDecimal,
@@ -626,7 +692,13 @@ export function quoteDeliveryEconomy(input: {
     nodeCapRaw: NODE_REWARD_CAP_RAW,
     nodeCapPeriodMs: REWARD_PERIOD_DURATION_MS,
     nodeLimitedRaw: payable.nodeLimitedRaw,
-    actualPayableRaw: payable.actualPayableRaw,
+    /** Pre-referral capped quote (compat). Prefer preReferralPayableRaw + finalAllocated*. */
+    actualPayableRaw: preReferralPayableRaw,
+    preReferralPayableRaw,
+    finalAllocatedReferrerRaw: allocation.finalAllocatedReferrerRaw,
+    finalAllocatedRelayRaw: allocation.finalAllocatedRelayRaw,
+    finalAllocatedTotalRaw: allocation.finalAllocatedTotalRaw,
+    allocationStatus: allocation.allocationStatus,
     globalBudgetRate: '0.05%_of_reserve_remaining_at_period_start',
     globalPoolHardCapRaw: pool,
     globalRemainingRaw,

@@ -101,19 +101,34 @@ npm run playground:interact   # page + SDK flow checks
 npm run bundle:startup        # browser-sandbox bundle boot
 ```
 
-## GitHub Pages (prepared, still disabled)
+## GitHub Pages (prepared; deploy gated)
 
-Workflow stub: `.github/workflows/pages.yml` (`pages-prepare-blocked`).
+Workflow: `.github/workflows/pages.yml` (`pages-manual-gated`).
 
-Owner-only steps **after** independent review + explicit approval:
+- Trigger: **workflow_dispatch only** (no push/PR auto-deploy).
+- Job `prepare`: builds browser bundle and uploads **allowlisted `playground/`** artifact only.
+- Job `deploy`: official `actions/deploy-pages` — runs **only** when input `owner_approve_deploy=true`.
+- Default input is `false` → prepare artifact without publishing.
 
-1. Confirm allowlist + MIT for this SDK package only.
-2. Enable GitHub Pages for the repository (Settings → Pages) **only when approved**.
-3. Allow the workflow to upload the `playground/` artifact (includes generated bundle).
-4. Do **not** force-enable or publish from this unit — public open remains **BLOCKED**.
+### Activation instructions (owner only, after independent review)
+
+1. Confirm `PUBLICATION_ALLOWLIST.md` + MIT for **this SDK package only**.
+2. Keep the repository **PRIVATE** until you explicitly approve a public open.
+3. In GitHub Settings → Pages: set Source to **GitHub Actions** (only when you intend to publish).
+4. Actions → **pages-manual-gated** → Run workflow:
+   - Leave `owner_approve_deploy` **false** to prepare/upload artifact without deploy.
+   - Set `owner_approve_deploy` **true** only with explicit owner approval to deploy.
+5. Public open remains **BLOCKED** until that explicit approval. This unit does not publish.
+
+## Release status (current)
+
+- Repository visibility: **PRIVATE**
+- Public GitHub Pages publication: **BLOCKED** (owner approval required)
+- Economic gates: **OFF** (no signing / spend / settlement deploy)
+- MIT: proposed for **SDK only** (not private product source)
 
 ## License
 
 **MIT proposed for this Open SDK package only.**  
 Private MeshSender / `secure-mesh-chat` product source is not licensed by this file.  
-Repository should remain **PRIVATE** until explicit owner approval.
+Repository must remain **PRIVATE** until explicit owner approval.

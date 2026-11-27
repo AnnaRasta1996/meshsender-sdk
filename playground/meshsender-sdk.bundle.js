@@ -2413,6 +2413,7 @@ var MeshSenderSDK = (() => {
     createPhysicalHardwarePendingStub: () => createPhysicalHardwarePendingStub,
     createWifiDirectSimAdapter: () => createWifiDirectSimAdapter,
     deriveCommonRewardPeriodId: () => deriveCommonRewardPeriodId,
+    deriveReferralAllocation: () => deriveReferralAllocation,
     digestPayload: () => digestPayload,
     extractRelayForwardTimestampsFromEvents: () => extractRelayForwardTimestampsFromEvents,
     fetchHistoricalRpcSnapshot: () => fetchHistoricalRpcSnapshot,
@@ -2425,6 +2426,7 @@ var MeshSenderSDK = (() => {
     generateDemoKeyPair: () => generateDemoKeyPair,
     globalPeriodPoolHardCapRaw: () => globalPeriodPoolHardCapRaw,
     hashMarketAgreement: () => hashMarketAgreement,
+    isReferralAllocationBlocked: () => isReferralAllocationBlocked,
     marketBurnRawExactOrFail: () => marketBurnRawExactOrFail,
     nodeCapLimitedNominalRaw: () => nodeCapLimitedNominalRaw,
     nodeRemainingRaw: () => nodeRemainingRaw,
@@ -3864,6 +3866,41 @@ var MeshSenderSDK = (() => {
   function applyHighConfidenceWeightOrBlock(_input) {
     throw new Error("DG3_HIGH_CONFIDENCE_WEIGHT_USE_UNRESOLVED");
   }
+  function isReferralAllocationBlocked(referral) {
+    if (referral.applied) return false;
+    if (referral.ownerDecisionRequired) return true;
+    const reason = referral.reason;
+    return reason === "MISSING_REFERRER_CAP_INPUT" || reason === REFERRER_CAP_INSUFFICIENT_OWNER_DECISION_REQUIRED || reason === "REFERRER_COUNTED_ABOVE_CAP" || reason === "INVALID_REFERRER_COUNTED_RAW" || String(reason).includes("INEXACT");
+  }
+  function deriveReferralAllocation(preReferralPayableRaw, referral) {
+    assertNonNegative(preReferralPayableRaw, "preReferralPayableRaw");
+    if (referral.applied) {
+      const total = referral.referrerRaw + referral.relayRaw;
+      if (total !== preReferralPayableRaw) {
+        throw new Error("REFERRAL_ALLOCATION_MUST_EQUAL_PRE_REFERRAL_PAYABLE");
+      }
+      return {
+        allocationStatus: "REFERRAL_APPLIED",
+        finalAllocatedReferrerRaw: referral.referrerRaw,
+        finalAllocatedRelayRaw: referral.relayRaw,
+        finalAllocatedTotalRaw: total
+      };
+    }
+    if (isReferralAllocationBlocked(referral)) {
+      return {
+        allocationStatus: "BLOCKED_OWNER_DECISION_REQUIRED",
+        finalAllocatedReferrerRaw: 0n,
+        finalAllocatedRelayRaw: 0n,
+        finalAllocatedTotalRaw: 0n
+      };
+    }
+    return {
+      allocationStatus: "NO_REFERRAL_RELAY_FULL",
+      finalAllocatedReferrerRaw: 0n,
+      finalAllocatedRelayRaw: preReferralPayableRaw,
+      finalAllocatedTotalRaw: preReferralPayableRaw
+    };
+  }
   function simulatePayableRelayReward(input) {
     const capped = nodeCapLimitedNominalRaw({
       nominalRewardRaw: input.nominalRewardRaw,
@@ -3933,6 +3970,8 @@ var MeshSenderSDK = (() => {
       actualPayableRaw: payable.actualPayableRaw,
       eligibility: input.referralEligibility
     });
+    const preReferralPayableRaw = payable.actualPayableRaw;
+    const allocation = deriveReferralAllocation(preReferralPayableRaw, referral);
     return {
       readiness: ECONOMY_READINESS,
       cpxEurPrice: input.cpxEurPriceDecimal,
@@ -3951,7 +3990,13 @@ var MeshSenderSDK = (() => {
       nodeCapRaw: NODE_REWARD_CAP_RAW,
       nodeCapPeriodMs: REWARD_PERIOD_DURATION_MS,
       nodeLimitedRaw: payable.nodeLimitedRaw,
-      actualPayableRaw: payable.actualPayableRaw,
+      /** Pre-referral capped quote (compat). Prefer preReferralPayableRaw + finalAllocated*. */
+      actualPayableRaw: preReferralPayableRaw,
+      preReferralPayableRaw,
+      finalAllocatedReferrerRaw: allocation.finalAllocatedReferrerRaw,
+      finalAllocatedRelayRaw: allocation.finalAllocatedRelayRaw,
+      finalAllocatedTotalRaw: allocation.finalAllocatedTotalRaw,
+      allocationStatus: allocation.allocationStatus,
       globalBudgetRate: "0.05%_of_reserve_remaining_at_period_start",
       globalPoolHardCapRaw: pool,
       globalRemainingRaw,
