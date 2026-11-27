@@ -2,6 +2,16 @@
 
 Public-safe TypeScript SDK for **MeshSender** / **Chaos Paradox (CPX)**.
 
+## See it
+
+| Link | What |
+|---|---|
+| **Product video** | [See MeshSender in Action — Real Android Prototype](https://annarasta1996.github.io/meshsender-sdk/#product-video) (YouTube embed; final watch URL set by owner in `playground/product-video-config.js`) |
+| **English walkthrough** | [docs/DEMO_VIDEO_GUIDE.md](./docs/DEMO_VIDEO_GUIDE.md) |
+| **Interactive Playground** | [https://annarasta1996.github.io/meshsender-sdk/](https://annarasta1996.github.io/meshsender-sdk/) |
+
+Footage is an **earlier working Android development build**. The Playground keeps Guided Demo and Developer Mode fully functional with explicit readiness labels. Economic gates remain **OFF**.
+
 ## Product vision (preserved)
 
 MeshSender aims to eliminate mandatory dependence on centralized carriers for core messaging: encrypted store-carry-forward across devices (Internet + BLE + Wi-Fi Direct + LoRa transports), cryptographic delivery/relay evidence concepts, Solana-native CPX economics (Reward Reserve funded relays), and Paradox Market direct peer payments (full recipient principal + 0.10% burn, zero platform fee).

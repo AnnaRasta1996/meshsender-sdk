@@ -1236,3 +1236,71 @@ async function runDevSolana(includeSnapshot) {
 
 document.getElementById('btn-solana').onclick = () => runDevSolana(false);
 document.getElementById('btn-solana-snap').onclick = () => runDevSolana(true);
+
+/** Parse YouTube watch / youtu.be / embed URLs → video id. Returns null if invalid. */
+function youtubeVideoIdFromUrl(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      const id = u.pathname.split('/').filter(Boolean)[0];
+      return id && /^[\w-]{6,}$/.test(id) ? id : null;
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (u.pathname.startsWith('/embed/')) {
+        const id = u.pathname.split('/')[2];
+        return id && /^[\w-]{6,}$/.test(id) ? id : null;
+      }
+      const v = u.searchParams.get('v');
+      return v && /^[\w-]{6,}$/.test(v) ? v : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function mountProductVideo() {
+  const cfg = window.MESH_SENDER_PRODUCT_VIDEO || {};
+  const watchUrl = (cfg.youtubeWatchUrl || '').trim();
+  const frame = document.getElementById('product-video-frame');
+  const pending = document.getElementById('product-video-pending');
+  const watchLink = document.getElementById('product-video-watch');
+  if (!frame) return;
+  const id = youtubeVideoIdFromUrl(watchUrl);
+  if (!id || !watchUrl) {
+    if (pending) {
+      pending.hidden = false;
+      pending.textContent =
+        'YouTube embed awaits the final owner-provided watch URL (set playground/product-video-config.js).';
+    }
+    if (watchLink) watchLink.hidden = true;
+    return;
+  }
+  if (pending) pending.hidden = true;
+  if (watchLink) {
+    watchLink.hidden = false;
+    watchLink.href = watchUrl.startsWith('http')
+      ? watchUrl
+      : `https://www.youtube.com/watch?v=${id}`;
+  }
+  // Lazy-loaded, no autoplay. privacy-enhanced domain.
+  frame.innerHTML = `
+    <div class="video-aspect">
+      <iframe
+        loading="lazy"
+        title="${text(cfg.embedTitle || 'MeshSender product video')}"
+        src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0"
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+    </div>
+  `;
+}
+
+mountProductVideo();
+

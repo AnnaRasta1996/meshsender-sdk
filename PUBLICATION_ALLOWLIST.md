@@ -6,11 +6,11 @@ Owner must approve this list + MIT before any **public** open.
 
 - `package.json`, `package-lock.json`, `tsconfig.json`
 - `LICENSE`, `README.md`, `FEATURE_READINESS.md`, `DISCLOSURE_REVIEW.md`, `PUBLICATION_ALLOWLIST.md`
-- `docs/**`
+- `docs/**` including `docs/DEMO_VIDEO_GUIDE.md` (English product-video walkthrough)
 - `src/**/*.ts`
 - `tests/**/*.ts`
 - `examples/**/*.ts`
-- `playground/**` including generated `meshsender-sdk.bundle.js`, guided judge UI (`index.html`, `app.js`, `styles.css`), and original `favicon.svg`
+- `playground/**` including generated `meshsender-sdk.bundle.js`, guided judge UI (`index.html`, `app.js`, `styles.css`), original `favicon.svg`, and `product-video-config.js` (owner YouTube URL; no MP4 binaries)
 - `scripts/demo.ts`, `scripts/serve-playground.mjs`, `scripts/build-browser.mjs`, `scripts/playground-interact.ts`, `scripts/bundle-startup-check.mjs`
 - `src/solana/publicIdentifiers.ts` (browser-safe mint/program/RPC constants)
 - `.github/workflows/pages.yml` (manual dispatch; deploy gated by `owner_approve_deploy`; Pages not public until owner approval)

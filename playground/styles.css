@@ -114,6 +114,99 @@ body { padding: 20px clamp(14px, 3vw, 36px) 72px; }
   max-width: 70ch;
 }
 
+.product-video {
+  margin: 28px 0 8px;
+  padding: 18px 0 6px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  animation: rise 0.65s ease both;
+}
+.product-video h2 {
+  margin: 0 0 8px;
+  font-size: clamp(1.25rem, 3.2vw, 1.75rem);
+  letter-spacing: -0.02em;
+  max-width: 28ch;
+}
+.product-video-label {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 62ch;
+  line-height: 1.45;
+}
+.video-frame-wrap {
+  width: 100%;
+  max-width: 720px;
+}
+.video-aspect {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: #050b14;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.video-aspect iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.video-pending {
+  margin: 0;
+  padding: 28px 16px;
+  border: 1px dashed var(--line);
+  background: #050b14;
+  max-width: 62ch;
+}
+.video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 12px 0 0;
+  font-size: 0.92rem;
+}
+.video-watch-link {
+  display: inline-block;
+  text-decoration: none;
+  padding: 10px 14px;
+}
+.text-link {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+.video-walkthrough {
+  max-width: 1120px;
+  margin: 0 auto 28px;
+  padding: 8px 0 4px;
+  animation: rise 0.55s ease both;
+}
+.video-walkthrough h2 {
+  margin: 0 0 8px;
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+}
+.walkthrough-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+  max-width: 70ch;
+  line-height: 1.5;
+}
+.walkthrough-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  max-width: 72ch;
+  color: var(--ink);
+  line-height: 1.55;
+}
+.walkthrough-list li { margin: 0 0 10px; }
+.walkthrough-list strong { color: #c8fff6; }
+@media (max-width: 640px) {
+  .product-video h2 { max-width: none; }
+  .video-actions { flex-direction: column; align-items: flex-start; }
+}
+
 .guided, .developer {
   max-width: 1120px;
   margin: 0 auto 24px;
