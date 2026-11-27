@@ -12,13 +12,19 @@ import {
   SPL_TOKEN_PROGRAM_ID,
   DEFAULT_MAINNET_RPC,
   SECONDARY_MAINNET_RPC,
+  BROWSER_INDEPENDENT_SECONDARY_RPC,
 } from './publicIdentifiers.js';
 
 export const PUBLIC_RPC_READINESS = Readiness.LIVE_READ_ONLY;
 export const PUBLIC_RPC_TIMEOUT_MS = 12_000 as const;
 /** Prefer known-working publicnode for browser mint reads. */
 export const BROWSER_PREFERRED_MINT_RPC = SECONDARY_MAINNET_RPC;
-export const BROWSER_FALLBACK_MINT_RPC = DEFAULT_MAINNET_RPC;
+/**
+ * Independent secondary for browser fallback.
+ * Official DEFAULT_MAINNET_RPC (api.mainnet.solana.com) returns HTTP 403 from Pages origins —
+ * do not use it as the browser secondary unless independently re-verified working.
+ */
+export const BROWSER_FALLBACK_MINT_RPC = BROWSER_INDEPENDENT_SECONDARY_RPC;
 export const RPC_ENDPOINT_COOLDOWN_MS = 60_000 as const;
 
 export type RpcFailureKind =
@@ -448,7 +454,7 @@ async function inspectCpxMintOnRpc(rpcUrl: string): Promise<MintInspectionBrowse
 }
 
 /**
- * CPX mint inspection. Browser default: publicnode first, then mainnet-beta.
+ * CPX mint inspection. Browser default: publicnode first, then independent browser secondary.
  * Respects per-session cooldown for forbidden/rate-limited endpoints.
  */
 export async function fetchInspectCpxMint(
@@ -584,10 +590,17 @@ export async function fetchInspectProgram(
 }
 
 export async function fetchInspectProgramDualRpc(
-  rpcUrls: readonly string[] = [DEFAULT_MAINNET_RPC, SECONDARY_MAINNET_RPC]
+  rpcUrls?: readonly string[],
+  options?: { preferBrowserOrder?: boolean }
 ) {
+  const preferBrowser = options?.preferBrowserOrder ?? rpcUrls === undefined;
+  const urls =
+    rpcUrls ??
+    (preferBrowser
+      ? ([BROWSER_PREFERRED_MINT_RPC, BROWSER_FALLBACK_MINT_RPC] as const)
+      : ([DEFAULT_MAINNET_RPC, SECONDARY_MAINNET_RPC] as const));
   const results = [];
-  for (const url of rpcUrls) results.push(await fetchInspectProgram(url));
+  for (const url of urls) results.push(await fetchInspectProgram(url));
   const statuses = new Set(results.map((r) => r.status));
   let agreement:
     | 'ALL_EXECUTABLE'

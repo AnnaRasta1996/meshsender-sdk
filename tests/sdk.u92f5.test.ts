@@ -204,7 +204,7 @@ describe('U92F5 guided economic fidelity + RPC', () => {
       assert.ok(mint.error);
     }
     // Explicit primary-only URL: no automatic fallback.
-    const primaryOnly = await fetchInspectCpxMint('https://api.mainnet-beta.solana.com', {
+    const primaryOnly = await fetchInspectCpxMint('https://api.mainnet.solana.com', {
       enableFallback: false,
     });
     assert.ok(primaryOnly.status === 'MINT_VERIFIED' || primaryOnly.status === 'RPC_ERROR');

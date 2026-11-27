@@ -10,7 +10,7 @@ Owner must approve this list + MIT before any **public** open.
 - `src/**/*.ts`
 - `tests/**/*.ts`
 - `examples/**/*.ts`
-- `playground/**` including generated `meshsender-sdk.bundle.js` and guided judge UI (`index.html`, `app.js`, `styles.css`)
+- `playground/**` including generated `meshsender-sdk.bundle.js`, guided judge UI (`index.html`, `app.js`, `styles.css`), and original `favicon.svg`
 - `scripts/demo.ts`, `scripts/serve-playground.mjs`, `scripts/build-browser.mjs`, `scripts/playground-interact.ts`, `scripts/bundle-startup-check.mjs`
 - `src/solana/publicIdentifiers.ts` (browser-safe mint/program/RPC constants)
 - `.github/workflows/pages.yml` (manual dispatch; deploy gated by `owner_approve_deploy`; Pages not public until owner approval)

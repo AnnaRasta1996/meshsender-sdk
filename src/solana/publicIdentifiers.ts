@@ -14,6 +14,16 @@ export const MESHSENDER_PROGRAM_ID =
 export const CPX_DECIMALS_EXPECTED = 6 as const;
 export const SPL_TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as const;
 
-/** Public mainnet-beta RPC (literal — no clusterApiUrl / web3 dependency). */
-export const DEFAULT_MAINNET_RPC = 'https://api.mainnet-beta.solana.com' as const;
+/**
+ * Official Solana Labs public mainnet RPC (docs: api.mainnet.solana.com).
+ * Node/CLI: typically reachable. Browser origins (e.g. GitHub Pages) may receive HTTP 403.
+ */
+export const DEFAULT_MAINNET_RPC = 'https://api.mainnet.solana.com' as const;
+/** Known-working public mainnet RPC (PublicNode) — preferred for browser mint reads. */
 export const SECONDARY_MAINNET_RPC = 'https://solana-rpc.publicnode.com' as const;
+/**
+ * Independent browser-verified public mainnet RPC (no API key).
+ * Used only when official api.mainnet.solana.com is blocked from the browser (HTTP 403).
+ */
+export const BROWSER_INDEPENDENT_SECONDARY_RPC =
+  'https://solana-mainnet.gateway.tatum.io' as const;

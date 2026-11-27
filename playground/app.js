@@ -278,6 +278,50 @@ function solanaStatusClass(mintStatus, dualAgreement) {
   return 'bad';
 }
 
+function rpcAvailabilityLabel(rpcUrl, failureKind, httpHint) {
+  if (!failureKind) return 'available';
+  if (failureKind === 'HTTP_FORBIDDEN') return 'unavailable (HTTP 403)';
+  if (failureKind === 'HTTP_RATE_LIMITED') return 'rate-limited (HTTP 429)';
+  if (failureKind === 'TIMEOUT') return 'timeout';
+  if (failureKind === 'ENDPOINT_COOLDOWN') return 'cooldown (recent forbid/rate-limit)';
+  if (failureKind === 'NETWORK_FAILURE') return 'network failure';
+  return `unavailable (${text(failureKind)}${httpHint ? ' ' + text(httpHint) : ''})`;
+}
+
+function solanaRpcAvailabilityHtml(mint, dual) {
+  const preferred = text(sdk.BROWSER_PREFERRED_MINT_RPC);
+  const fallback = text(sdk.BROWSER_FALLBACK_MINT_RPC);
+  const official = text(sdk.DEFAULT_MAINNET_RPC);
+  const mintRpc = text(mint.rpcUrl || '');
+  const primaryFail = mint.primaryError || mint.primary || null;
+  const rows = (dual.results || []).map((r) => {
+    const avail =
+      r.status === 'RPC_ERROR'
+        ? rpcAvailabilityLabel(r.rpcUrl, r.failureKind)
+        : 'available';
+    return `<li>Settlement program RPC <span class="amount">${text(r.rpcUrl)}</span>: <span class="amount">${avail}</span> · program status <span class="amount">${text(r.status)}</span></li>`;
+  });
+  return `
+    <li>RPC preferred (browser): <span class="amount">${preferred}</span> · ${
+      mintRpc === preferred && mint.status === 'MINT_VERIFIED'
+        ? 'available'
+        : primaryFail && text(primaryFail.rpcUrl) === preferred
+          ? rpcAvailabilityLabel(preferred, primaryFail.kind || primaryFail.failureKind)
+          : mintRpc === preferred
+            ? rpcAvailabilityLabel(preferred, mint.failureKind)
+            : 'see mint source RPC'
+    }</li>
+    <li>RPC independent secondary (browser): <span class="amount">${fallback}</span> · ${
+      mint.usedFallback && mintRpc === fallback
+        ? 'available (used as mint fallback)'
+        : 'configured for mint fallback / dual program check'
+    }</li>
+    <li>Official Solana Labs RPC: <span class="amount">${official}</span> · browser origins may return HTTP 403 (not used as browser secondary unless re-verified)</li>
+    <li>CPX mint verification (separate from settlement program): <span class="amount">${text(mint.status)}</span> via <span class="amount">${mintRpc || 'n/a'}</span></li>
+    ${rows.join('\n')}
+  `;
+}
+
 async function animateRoute(route, runId) {
   renderRoute('net-viz', route, { packetAt: 0, activeIndex: 0 });
   for (let i = 0; i < route.length; i++) {
@@ -599,17 +643,18 @@ async function runGuidedStep(index, runId) {
       setResultCard(`
         <h4><span class="${statusSpan}">Solana inspection</span> · LIVE_READ_ONLY</h4>
         <ul>
-          <li>CPX mint status: <span class="amount">${text(mint.status)}</span></li>
+          <li><strong>CPX mint</strong> (token) status: <span class="amount">${text(mint.status)}</span> — not settlement</li>
           <li>Supply UI: <span class="amount">${text(mint.supplyUi ?? '')}</span> · raw <span class="amount">${text(mint.supplyRaw ?? '')}</span></li>
           <li>Decimals: <span class="amount">${text(mint.decimals ?? '')}</span> · source <span class="amount">${text(mint.supplySource ?? '')}</span></li>
           <li>Mint authority revoked: <span class="amount">${text(mint.mintAuthorityRevoked)}</span> · freeze revoked: <span class="amount">${text(mint.freezeAuthorityRevoked)}</span></li>
-          <li>Source RPC: <span class="amount">${text(mint.rpcUrl ?? '')}</span> · slot <span class="amount">${text(mint.slot)}</span></li>
+          <li>Mint source RPC: <span class="amount">${text(mint.rpcUrl ?? '')}</span> · slot <span class="amount">${text(mint.slot)}</span></li>
           <li>Inspected at: <span class="amount">${text(mint.inspectedAtIso ?? '')}</span></li>
-          <li>Failure kind: <span class="amount">${text(mint.failureKind || (mint.usedFallback ? 'PRIMARY_FAILED_SECONDARY_OK' : 'none'))}</span></li>
-          <li>Used fallback: <span class="amount">${text(!!mint.usedFallback)}</span></li>
-          <li>Mint: <span class="amount">${text(sdk.CPX_MAINNET_MINT_ADDRESS)}</span></li>
-          <li>Program: <span class="amount">${text(sdk.MESHSENDER_PROGRAM_ID)}</span></li>
-          <li>Program dual-RPC: <span class="amount">${text(dual.agreement)}</span></li>
+          <li>Mint failure kind: <span class="amount">${text(mint.failureKind || (mint.usedFallback ? 'PRIMARY_FAILED_SECONDARY_OK' : 'none'))}</span></li>
+          <li>Used mint fallback: <span class="amount">${text(!!mint.usedFallback)}</span></li>
+          <li>Mint address: <span class="amount">${text(sdk.CPX_MAINNET_MINT_ADDRESS)}</span></li>
+          <li><strong>Settlement program</strong> (separate): <span class="amount">${text(sdk.MESHSENDER_PROGRAM_ID)}</span></li>
+          <li>Program dual-RPC agreement: <span class="amount">${text(dual.agreement)}</span></li>
+          ${solanaRpcAvailabilityHtml(mint, dual)}
           <li>Solscan: <a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan)}" target="_blank" rel="noopener">${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintSolscan)}</a></li>
           <li>Phantom.com: <a href="${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom)}" target="_blank" rel="noopener">${text(sdk.PUBLIC_EXPLORER_LINKS.cpxMintPhantom)}</a></li>
           <li>Writes enabled: <span class="amount">false</span></li>
@@ -1122,11 +1167,20 @@ async function runDevSolana(includeSnapshot) {
       if (runId !== devRunId) return;
     }
     const cls = solanaStatusClass(mint.status, dual.agreement);
+    const programAvail = (dual.results || [])
+      .map((r) => {
+        const avail =
+          r.status === 'RPC_ERROR'
+            ? rpcAvailabilityLabel(r.rpcUrl, r.failureKind)
+            : 'available';
+        return `${text(r.rpcUrl)}:${avail}/${text(r.status)}`;
+      })
+      .join(' · ');
     setSummary(
       'sum-solana',
-      `mint=${text(mint.status)} · supply=${text(mint.supplyUi ?? '')} · decimals=${text(mint.decimals ?? '')} · rpc=${text(mint.rpcUrl ?? '')} · slot=${text(mint.slot)} · at=${text(mint.inspectedAtIso ?? '')}${
+      `<strong>CPX mint</strong> ${text(mint.status)} · supply=${text(mint.supplyUi ?? '')} · decimals=${text(mint.decimals ?? '')} · mintRPC=${text(mint.rpcUrl ?? '')} · slot=${text(mint.slot)} · at=${text(mint.inspectedAtIso ?? '')}${
         mint.failureKind ? ' · ' + text(mint.failureKind) : ''
-      } · fallback=${text(!!mint.usedFallback)} · program=${text(dual.agreement)}${
+      } · mintFallback=${text(!!mint.usedFallback)}<br/><strong>Settlement program</strong> agreement=${text(dual.agreement)} · ${text(programAvail)}${
         snapshot
           ? ' · historical @ ' + text(snapshot.capturedAtIso) + ' reused=' + text(snapshot.reusedExistingResults) + ' (NOT LIVE)'
           : ''

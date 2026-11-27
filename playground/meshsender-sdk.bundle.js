@@ -2339,6 +2339,7 @@ var MeshSenderSDK = (() => {
   __export(browser_entry_exports, {
     BROWSER_BUNDLE: () => BROWSER_BUNDLE,
     BROWSER_FALLBACK_MINT_RPC: () => BROWSER_FALLBACK_MINT_RPC,
+    BROWSER_INDEPENDENT_SECONDARY_RPC: () => BROWSER_INDEPENDENT_SECONDARY_RPC,
     BROWSER_PREFERRED_MINT_RPC: () => BROWSER_PREFERRED_MINT_RPC,
     CPX_DECIMALS: () => CPX_DECIMALS,
     CPX_DECIMALS_EXPECTED: () => CPX_DECIMALS_EXPECTED,
@@ -4311,14 +4312,15 @@ var MeshSenderSDK = (() => {
   var MESHSENDER_PROGRAM_ID = "GSRFUJcMMZdSgqueeGd9mWhUfrSF33QHVELNNWbvpKNg";
   var CPX_DECIMALS_EXPECTED = 6;
   var SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-  var DEFAULT_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
+  var DEFAULT_MAINNET_RPC = "https://api.mainnet.solana.com";
   var SECONDARY_MAINNET_RPC = "https://solana-rpc.publicnode.com";
+  var BROWSER_INDEPENDENT_SECONDARY_RPC = "https://solana-mainnet.gateway.tatum.io";
 
   // src/solana/publicRpcFetch.ts
   var PUBLIC_RPC_READINESS = Readiness.LIVE_READ_ONLY;
   var PUBLIC_RPC_TIMEOUT_MS = 12e3;
   var BROWSER_PREFERRED_MINT_RPC = SECONDARY_MAINNET_RPC;
-  var BROWSER_FALLBACK_MINT_RPC = DEFAULT_MAINNET_RPC;
+  var BROWSER_FALLBACK_MINT_RPC = BROWSER_INDEPENDENT_SECONDARY_RPC;
   var RPC_ENDPOINT_COOLDOWN_MS = 6e4;
   function publicSolscanTokenUrl(mintAddress = CPX_MAINNET_MINT_ADDRESS) {
     return `https://solscan.io/token/${mintAddress}`;
@@ -4717,9 +4719,11 @@ var MeshSenderSDK = (() => {
       explorer: PUBLIC_EXPLORER_LINKS
     };
   }
-  async function fetchInspectProgramDualRpc(rpcUrls = [DEFAULT_MAINNET_RPC, SECONDARY_MAINNET_RPC]) {
+  async function fetchInspectProgramDualRpc(rpcUrls, options) {
+    const preferBrowser = options?.preferBrowserOrder ?? rpcUrls === void 0;
+    const urls = rpcUrls ?? (preferBrowser ? [BROWSER_PREFERRED_MINT_RPC, BROWSER_FALLBACK_MINT_RPC] : [DEFAULT_MAINNET_RPC, SECONDARY_MAINNET_RPC]);
     const results = [];
-    for (const url of rpcUrls) results.push(await fetchInspectProgram(url));
+    for (const url of urls) results.push(await fetchInspectProgram(url));
     const statuses = new Set(results.map((r) => r.status));
     let agreement = "MIXED_OR_ERROR";
     if (statuses.size === 1 && statuses.has("PROGRAM_EXECUTABLE")) agreement = "ALL_EXECUTABLE";
